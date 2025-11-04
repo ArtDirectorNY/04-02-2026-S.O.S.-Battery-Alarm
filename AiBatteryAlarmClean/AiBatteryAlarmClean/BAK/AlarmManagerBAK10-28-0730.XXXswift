@@ -1,0 +1,40 @@
+import Foundation
+import AVFoundation
+import AudioToolbox
+
+class AlarmManager {
+    static let shared = AlarmManager()
+
+    private var player: AVAudioPlayer?
+
+    private init() {
+        print("🔧 AlarmManager initialized")
+    }
+
+    func startAlarm() {
+        guard let url = Bundle.main.url(forResource: "alarm_sound", withExtension: "mp3") else {
+            print("❌ alarm_sound.mp3 not found in bundle")
+            return
+        }
+
+        do {
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.numberOfLoops = -1
+            player?.volume = 0.8
+            player?.prepareToPlay()
+            player?.play()
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            print("✅ Alarm started and vibration triggered")
+        } catch {
+            print("❌ Failed to play alarm: \(error.localizedDescription)")
+        }
+    }
+
+    func stopAlarm() {
+        if let player = player, player.isPlaying {
+            player.stop()
+            print("🛑 Alarm stopped")
+        }
+        player = nil
+    }
+}
