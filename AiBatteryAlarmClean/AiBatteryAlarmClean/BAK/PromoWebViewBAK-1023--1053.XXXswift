@@ -1,0 +1,88 @@
+import SwiftUI
+import WebKit
+
+struct PromoWebView: UIViewRepresentable {
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+
+        let contentController = WKUserContentController()
+        contentController.add(context.coordinator, name: "jsLogger")
+
+        // Inject JS bridge for console logging
+        let jsBridge = """
+        (function() {
+          function wrapConsole(method) {
+            const original = console[method];
+            console[method] = function(...args) {
+              window.webkit.messageHandlers.jsLogger.postMessage(method + ": " + args.join(" "));
+              original.apply(console, args);
+            };
+          }
+          ['log', 'warn', 'error'].forEach(wrapConsole);
+
+          window.onerror = function(msg, url, line, col, error) {
+            window.webkit.messageHandlers.jsLogger.postMessage("JS ERROR: " + msg + " at " + url + ":" + line + ":" + col);
+          };
+        })();
+        """
+        let script = WKUserScript(source: jsBridge, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        contentController.addUserScript(script)
+        config.userContentController = contentController
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.isScrollEnabled = true
+        webView.scrollView.bounces = false
+
+        // Load local HTML file with proper base URL for resources
+        if let htmlPath = Bundle.main.path(forResource: "promo", ofType: "html") {
+            let fileURL = URL(fileURLWithPath: htmlPath)
+            let directoryURL = fileURL.deletingLastPathComponent()
+            webView.loadFileURL(fileURL, allowingReadAccessTo: directoryURL)
+            print("✅ promo.html loaded via loadFileURL with resource access")
+        } else {
+            print("❌ promo.html not found in bundle")
+        }
+
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        // No dynamic updates required
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+
+            if let url = navigationAction.request.url,
+               url.scheme == "http" || url.scheme == "https",
+               navigationAction.navigationType == .linkActivated {
+
+                UIApplication.shared.open(url)
+                decisionHandler(.cancel)
+                print("🌐 External link opened in Safari: \(url.absoluteString)")
+                return
+            }
+
+            decisionHandler(.allow)
+        }
+
+        func userContentController(_ userContentController: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
+            if message.name == "jsLogger", let log = message.body as? String {
+                print("📟 JS LOG: \(log)")
+            }
+        }
+    }
+}
+

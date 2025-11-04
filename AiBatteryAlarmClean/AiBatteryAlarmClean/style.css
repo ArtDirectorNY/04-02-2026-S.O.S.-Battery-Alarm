@@ -1,0 +1,561 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #000;
+}
+
+header {
+  background: #333;
+  color: white;
+  padding: 0px;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  z-index: 1000;
+  text-align: right;
+  margin-top: -8px;
+}
+
+#menu-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 40px;
+}
+
+nav {
+  display: none;
+  background: #444;
+  padding: 10px;
+  position: absolute;
+  top: 44px;
+  right: 20px;
+  border-radius: 5px;
+}
+
+nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+nav li {
+  margin: 5px 0;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+}
+
+#promo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-width: 375px;
+  margin: 2px auto -30px;
+}
+
+.promo-box {
+  display: block;
+  flex: 1;
+  padding: 4px;
+  background: #000;
+  text-align: center;
+  color: #fff;
+  cursor: pointer;
+  border: 1px solid #555;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.promo-box img {
+  width: 90%;
+  height: auto;
+  margin-top: 10px;
+  border-radius: 4px;
+}
+
+main {
+  padding: 20px;
+}
+
+.card {
+  border: 0px solid blue !important;
+  background: #222;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  padding: 10px;
+  margin-bottom: 0px;
+}
+
+#battery {
+  margin-top: 1.5em !important;
+  max-width: 375px;
+  margin: 60px auto 20px;
+  text-align: center;
+}
+
+#battery-bar {
+  width: 100%;
+  height: 30px;
+  background: #ccc;
+  position: relative;
+  margin: 10px 0;
+  border-radius: 5px;
+}
+
+#battery-percent {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: bold;
+}
+
+details {
+  margin-top: 10px;
+}
+
+.green-heading {
+  color: green;
+  text-align: center;
+  margin-top: -5px;
+  font-size: 1.3em;
+}
+
+#settings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 375px;
+  margin: -10px auto 0;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #999;
+}
+
+input[type="number"] {
+  width: 4ch;
+  padding: 0.3rem;
+  margin-top: 5px;
+}
+
+select {
+  padding: 0.3rem;
+  margin-top: 5px;
+  margin-top: -2px;
+  background-color: #444;
+  color: #ddd;
+}
+
+#purchase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 375px;
+  margin: 20px auto 20px;
+}
+
+.purchase-heading {
+  color: blueviolet;
+  text-align: center;
+  font-size: 1.2em;
+}
+
+#info {
+  max-width: 375px;
+  margin: 20px auto 0px;
+}
+
+#sound-select {
+  border: 1px solid green;
+  width: inherit;
+  height: 30px;
+  text-align: center !important;
+  font-size: .8em;
+}
+
+button {
+  width: 60px;
+  height: 40px;
+  text-align: center !important;
+  font-size: 1em;
+  border-radius: 2px !important;
+}
+
+summary, h2, h3, p {
+  color: white;
+}
+
+a {
+  color: lightskyblue;
+}
+
+.noAds {
+  margin: 10px auto -1em;
+  text-align: center;
+  font-size: 12px;
+}
+
+.menuLogo {
+  margin: 0 auto 0;
+  width: 50%;
+  max-width: 380px;
+  opacity: 0.5;
+  text-align: center;
+}
+/* Slider Styles */
+.slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #333;
+  outline: none;
+  margin: 10px 0;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #00b894;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #00b894;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+#low-display, #high-display {
+  color: #00b894;
+  font-weight: bold;
+  margin-left: 5px;
+}
+.button-row {
+    display: flex;
+    gap: 0px;
+    margin: -20px 0;
+    justify-content: center;
+}
+
+ .reset-btn {
+    padding: 0px 0px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/*.stop-btn {
+    background: #ff4444;
+    color: white;
+}*/
+
+.reset-btn {
+    background: transparent;
+    color: white;
+    padding: 0px;
+    width: 100% !important;
+    height: 64px !important;
+    line-height: 10px;
+    margin: -40px auto -1px ;
+}
+.pause-btn {
+    background: transparent;
+    padding: 0px;
+    width: 100% !important;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    color: #666;
+    margin: -1px auto -30px !important;
+}
+.buttonText {
+    font-size: 14px;
+    /*line-height: 10px;*/
+}
+.center {
+    margin: 0 auto 0 !important;
+    taxt-align: center !important;
+    
+}
+.centered-select {/*temp*/
+    display: block !important; /* Make the select element a block-level element */
+    width: 200px; /* Set a specific width for the select element */
+    margin: 0 auto !important; /* Center horizontally using auto margins */
+}
+   label, .center, .centered-select {/*works*/border: 0px solid blue;
+    text-align: center !important;
+    margin-top: -14px;
+}
+.darkText {
+    color: #666;
+}
+/*
+#sound-select > select > option { /*atempt to edit select appearance*//*
+   border: 3px solid blue !important;
+   color: blue !important;
+   background-color: lightgray;
+}*/
+
+.brightness-control {
+    margin: 15px 0;
+    text-align: center;
+    color: #999;
+}
+
+#brightness-display {
+    color: #00b894;
+    font-weight: bold;
+}
+
+
+/* Settings Grid Layout - Narrower side columns */
+.settings-grid { border: 0px solid blue !important;
+    width: 100% !important;
+    display: grid;
+    grid-template-columns: 80px 1fr 80px;
+    gap: 10px;
+    align-items: start;
+}
+
+.settings-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Left Column - Brightness */
+.brightness-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    gap: 8px;
+}
+
+.brightness-label {
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.slider-container {border: 0px solid blue;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: -20px;
+}
+
+.vertical-slider {
+    writing-mode: bt-lr;
+    -webkit-appearance: slider-vertical;
+    width: 8px;
+    height: 220px;
+}
+
+.brightness-value {
+    color: #00b894;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* Center Column - Compact Labels */
+.center-column {
+    text-align: center;
+}
+
+.compact-label {border: 0px solid blue !important;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 18px;
+}
+
+.label-text {
+    color: #999;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.pauseBtn {
+    margin-top: -20px !important;
+}
+
+.topLabel {
+    margin-bottom: -10px !important;
+}
+
+.bottomLabel {margin-top: -10px !important}
+
+/* Ensure labels stay on one line on small screens */
+@media (max-width: 375px) {
+    .label-text {
+        font-size: 12px;
+    }
+    
+    .settings-grid {
+        grid-template-columns: 70px 1fr 70px;
+        gap: 8px;
+    }
+}
+
+/* Button Styles */
+.button-row {
+    margin: 5px 0;
+}
+
+.pause-btn, .reset-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.pause-btn {border: 0px solid blue !important; height: 40px !important;
+    background: transparent;
+    color: #666;
+    margin: -20px auto 6px !important;
+}
+
+.reset-btn {border: 0px solid blue !important;height: inherit !important;
+    background: transparent;
+    color: #666;
+    
+}
+
+/* Right Column */
+.right-column {
+    text-align: center;
+}
+
+.icon-placeholder {
+    padding: 15px 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    border: 1px dashed #555;
+    font-size: 11px;
+    color: #666;
+}
+
+/* Existing slider styles */
+.slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: #333;
+    outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #00b894;
+    cursor: pointer;
+    border: 2px solid #fff;
+}
+
+/* Sound Selector *//* superseded by original above
+#sound-select {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #00b894;
+    border-radius: 6px;
+    background: #333;
+    color: white;
+    font-size: 12px;
+    
+}
+ /* Quick Actions - Icon Buttons */
+ .quick-actions {
+     display: flex;
+     flex-direction: column;
+     gap: 10px;
+     margin-top: -49px !important;
+ }
+
+ .icon-btn {
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     padding: 10px 8px;/*
+     background: rgba(255,255,255,0.05);*/
+     background: transparent;
+     border: 0px solid #555;
+     border-radius: 25%;
+     color: #666;
+     cursor: pointer;
+     transition: all 0.2s;
+     width: 100%;
+     
+ }
+
+ .icon-btn:hover {
+     background: rgba(255,255,255,0.1);
+     border-color: #00b894;
+ }
+
+ .icon-btn:active {
+     transform: scale(0.95);
+ }
+
+ .icon {
+     font-size: 30px;
+     margin-bottom: 4px;
+ }
+
+ .icon-text {
+     font-size: 12px;
+     line-height: 1.1;
+     text-align: center;
+ }
+/* Battery Health Display */
+.battery-health {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.health-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.health-label {
+    color: #999;
+}
+
+.health-value {
+    color: #00b894;
+    font-weight: bold;
+}

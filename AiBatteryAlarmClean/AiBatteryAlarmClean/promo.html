@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ai-Battery-Alarm</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+   <title>Ai-Battery-Alarm</title>
+   <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <button id="menu-toggle">☰</button>
+    <nav id="menu">
+      <ul>
+        <li><a href="#battery">Battery</a></li>
+        <li><a href="#settings">Settings</a></li>
+        <li><a href="#info">Info</a></li>
+        <li class="menuLogo"><hr><span style="text-align:left !important">This Free App is a donation from 'Earthday 365!'</span></li>
+      </ul>
+      <a href="http://www.CosmicWisdom.com//MAGICofKARMA/" target="_blank"><img src="AngryBuddhistLogo-SM.png" width="100%" alt="Logo"></a>
+    </nav>
+  </header>
+
+  <section id="battery" class="card">
+    <h2>Free Battery Alarm</h2>
+    <div id="battery-bar"><span id="battery-percent">--%</span></div>
+  </section>
+
+  <!--//#####-->
+  <section id="settings" class="card">
+      <h2 class="green-heading">Your Settings</h2>
+      <div class="settings-grid">
+          <!-- LEFT COLUMN - Brightness -->
+          <div class="settings-column left-column">
+              <div class="brightness-control">
+                  <div class="brightness-label">Screen Brightness</div>
+                  <div class="slider-container">
+                      <input type="range" id="brightness-slider" min="0" max="100" value="50" class="vertical-slider">
+                      <span id="brightness-display" class="brightness-value">50%</span>
+                  </div>
+              </div>
+          </div>
+
+          <!-- CENTER COLUMN - Main Controls -->
+          <div class="settings-column center-column">
+              <!-- High Battery -->
+              <label class="compact-label">
+                  <span class="label-text topLabel">Your High Threshold: <span id="high-display">80%</span></span>
+                  <input type="range" id="high-threshold" min="0" max="100" step="5" value="80" class="slider">
+              </label>
+              
+              <!-- Reset Button -->
+              <div class="button-row">
+                  <button class="reset-btn" onclick="resetSettings()">🔄 Resets to 80/20 Default</button>
+              </div>
+
+              <!-- Low Battery -->
+              <label class="compact-label">
+                  <input type="range" id="low-threshold" min="0" max="100" step="5" value="20" class="slider">
+                  <span class="label-text bottomLabel">Your Low Threshold: <span id="low-display">20%</span></span>
+              </label>
+
+              <!-- Pause Button -->
+              <div class="button-row center">
+                  <button class="pause-btn" onclick="toggleMonitoring()">⏸️ Pause Monitoring</button>
+              </div>
+
+              <!-- Sound Selection -->
+              <label class="compact-label">
+                  <span class="label-text">Choose Alarm Sound:</span>
+                  <select id="sound-select" class="select">
+                      <option value="default">Beep Short</option>
+                      <option value="slide_whistle">Slide Whistle</option>
+                      <option value="alarm_clock">Alarm Clock</option>
+                      <option value="boing">Cartoon Boing</option>
+                      <option value="custom">🎵 Choose Music</option>
+                  </select>
+              </label>
+          </div>
+
+          <!-- RIGHT COLUMN - Quick Actions -->
+          <div class="settings-column right-column">
+              <div class="quick-actions">
+                  <button class="icon-btn" onclick="toggleFlashlight()" title="Flashlight">
+                      <span class="icon">🔦</span>
+                      <span class="icon-text">Flashlight</span>
+                  </button>
+                  <button class="icon-btn" onclick="showBatteryHealth()" title="Battery Health">
+                      <span class="icon">🔋</span>
+                      <span class="icon-text">Battery Info</span>
+                  </button>
+                  <button class="icon-btn" onclick="showQuickLauncher()" title="Quick App Launcher">
+                      <span class="icon">🚀</span>
+                      <span class="icon-text">App Launcher</span>
+                  </button>
+                  <button class="icon-btn" onclick="showDeviceInfo()" title="Device Information">
+                          <span class="icon">📱</span>
+                          <span class="icon-text">Device Info</span>
+                  </button>
+              </div>
+          </div>
+      </div> <!-- CLOSES settings-grid -->
+  </section> <!-- CLOSES section -->  <!--\\####-->
+
+  <div id="noAds">
+    <p class="noAds"><strong>Not Ads! 1 Free Promo:</strong><br>Free Children's Educational eBooks for your sharing. <br> Opt out below.</p>
+  </div>
+
+  <section id="promo-banner">
+    <a class="promo-box" href="https://a.co/d/5YWTseA" target="_blank">
+      FREE Children's eBook 📗 “Be Nice to Her, Too!”
+      <img src="https://m.media-amazon.com/images/I/71MxQQ75WuL._AC_CR0%2C0%2C0%2C0_SX615_SY462_.jpg" style="width: 90%; height: auto; margin-top: 8px;" alt="Be Nice to Her, Too!">
+      <p>Available in Spanish</p>
+    </a>
+    <a class="promo-box" href="https://a.co/d/5YWTseA" target="_blank">
+      FREE Children's eBook 📗 “The Spirit of Action”
+      <img src="https://m.media-amazon.com/images/I/81F7HsduLuL._SY522_.jpg" style="width: 90%; height: auto; margin-top: 8px;" alt="The Spirit of Action">
+      <p>Second in the Series</p>
+    </a>
+  </section>
+
+  <main>
+    <section id="purchase" class="card">
+      <h2 class="purchase-heading">Buy App to remove Free eBook Promo for $0.99¢ (USD)</h2>
+      <button onclick="simulatePurchase()">Buy</button>
+    </section>
+
+    <section id="info" class="card">
+      <details>
+        <summary>📜 Mission: Earth Day Everywhere 365!</summary>
+        <h3>Earth Day Everywhere 365:</h3>
+        <p>No commercial ads! This App is FREE without commercial ads for the sole purpose of promoting FREE children's books on 'Climate Action' education and adult books on 'Global Karma' scholastic books, by 'The Angry Buddhist.'</p>
+        <p>Only two FREE book recommendations will be shown at one time. We encourage the user to continue using the FREE App in an effort to have these FREE books for sharing and conversation topics.</p>
+        <p>However, these FREE promos can be turned OFF by supporting the Angry Buddhist educational mission with a $0.99¢ USD contribution. You can always download FREE ePub/eBook ARCs (Advanced Reviewer Copies) on these and related books from <a href="https://CosmicWisdom.com/MAGICofKARMA" target="_blank">Cosmic Wisdom Publishing</a> and FREE for Amazon Kindle subscribers at <a href="http://amazon.com/author/108" target="_blank">http://amazon.com/author/108</a> for Amazon FREE Kindle books for Tablets or phones.</p>
+        <p>Additional donations to this educational "Global Karma / Climate Action" FREE books can be sent to <a href="https://account.venmo.com/u/jaimeordonez" target="_blank">Venmo: @jaimeordonez</a>. All donations will be used to continue publishing FREE books in the service of "Earth Day Everywhere 365."</p>
+      </details>
+      <details>
+        <summary>🔒 Privacy Policy</summary>
+        <p>No data is collected. All logic runs locally.</p>
+      </details>
+    </section>
+  </main>
+
+  <!-- Audio tags for working sounds -->
+  <audio id="slide_whistle-sound" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle.ogg" preload="auto"></audio>
+  <audio id="default-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+  <audio id="alarm_clock-sound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+  <audio id="boing-sound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg" preload="auto"></audio>
+
+  <script src="promo.js"></script>
+</body>
+</html>
+

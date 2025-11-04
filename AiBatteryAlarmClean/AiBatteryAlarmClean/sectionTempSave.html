@@ -1,0 +1,43 @@
+<section id="settings" class="card">
+    <h2 class="green-heading">Your Settings</h2>
+    <div class="settings-form">
+        <!-- // high battery slider -->
+        <label>High Battery Alarm: <span id="high-display">80%</span><br>
+          <input type="range" id="high-threshold" min="0" max="100" step="5" value="80" class="slider" />
+        </label>
+        <!-- \\ high battery slider -->
+        <!-- // pause & reset Btn-->
+        <div class="button-row center">
+             <button class="reset-btn" onclick="resetSettings()">🔄
+             <span class="buttonText darkText">Resets to 20/80 Default</span></button>
+        </div>
+        <!-- \\ pause & reset Btn-->
+        <!-- // low battery slider -->
+        <label>Low Battery Alarm: <span id="low-display">20%</span><br>
+          <input type="range" id="low-threshold" min="0" max="100" step="5" value="20" class="slider" />
+        </label>
+        <!-- \\ low battery slider -->
+        <!-- // pause & reset Btn-->
+        <div class="button-row">
+            <button class="pause-btn" onclick="toggleMonitoring()">⏸️
+            <!--<span class="buttonText darkText">-->Pause Monitoring<!--</span>--></button>
+        </div>
+        <!-- \\ pause & reset Btn-->
+        <!-- // screen Brightness slider-->
+        <div class="brightness-control">
+            <label>Screen Brightness: <span id="brightness-display">50%</span></label>
+            <input type="range" id="brightness-slider" min="0" max="100" value="50" class="slider">
+        </div>
+        <!-- \\ screen Brightness slider-->
+      <label class="center centered-select">Choose Alarm Sound:<br>
+        <select id="sound-select" class="centered-select">
+          <option value="default">&nbsp; &nbsp; Beep Short</option>
+          <option value="slide_whistle">&nbsp; &nbsp; Slide Whistle</option>
+          <option value="alarm_clock">&nbsp; &nbsp; Alarm Clock</option>
+          <option value="boing">&nbsp; &nbsp; Cartoon Boing</option>
+          <option value="custom">&nbsp; &nbsp; &#9835;Choose Music</option>
+        </select>
+        <small style="color: #666;" class="darkText">Note: Custom music uses default<br>when music is not available</small>
+      </label>
+    </div>
+  </section>
