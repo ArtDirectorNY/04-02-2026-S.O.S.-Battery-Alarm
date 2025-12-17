@@ -17,22 +17,9 @@
 		6FD4749E2E9B088D001773BE /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		6F424F922EABFBEA002907DE /* Exceptions for "AiBatteryAlarmClean" folder in "AiBatteryAlarmClean" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 6F0C58B62E94692700821138 /* AiBatteryAlarmClean */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6F0C58B92E94692700821138 /* AiBatteryAlarmClean */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				6F424F922EABFBEA002907DE /* Exceptions for "AiBatteryAlarmClean" folder in "AiBatteryAlarmClean" target */,
-			);
 			path = AiBatteryAlarmClean;
 			sourceTree = "<group>";
 		};
