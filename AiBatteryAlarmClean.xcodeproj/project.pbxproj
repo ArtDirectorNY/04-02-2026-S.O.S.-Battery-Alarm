@@ -12,16 +12,26 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		6F0402372EBA9A7900C02985 /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
 		6F0C58B72E94692700821138 /* AiBatteryAlarmClean.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AiBatteryAlarmClean.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6F66FB8C2ED38446002A26EA /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
+		6F69702F2ED2D0AC00000F3E /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
+		6F8DF8632ED76A3F00B998FF /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
+		6FAFC8752ECB813B00E5F20B /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
+		6FAFC8AF2ECB919E00E5F20B /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
 		6FD4749C2E9B0589001773BE /* BatteryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryMonitor.swift; sourceTree = "<group>"; };
 		6FD4749E2E9B088D001773BE /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		6FDC43992EBD02CB00385E6B /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
+		6FE951712ED1FA5200D99A4A /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		6F424F922EABFBEA002907DE /* Exceptions for "AiBatteryAlarmClean" folder in "AiBatteryAlarmClean" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				"AiBatteryAlarmClean/ VolumeScriptMessageHandler.swift",
+				"AiBatteryAlarmClean/BAK/PromoWebView-OLD.swift",
+				AiBatteryAlarmClean/Info.plist,
 			);
 			target = 6F0C58B62E94692700821138 /* AiBatteryAlarmClean */;
 		};
@@ -49,6 +59,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6F0402382EBA9A7900C02985 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		6F0C58AE2E94692700821138 = {
 			isa = PBXGroup;
 			children = (
@@ -64,6 +79,41 @@
 			children = (
 				6F0C58B72E94692700821138 /* AiBatteryAlarmClean.app */,
 			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6F66FB8D2ED38446002A26EA /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6F6970302ED2D0AC00000F3E /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6F8DF8642ED76A3F00B998FF /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6FAFC8762ECB813B00E5F20B /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6FAFC8B02ECB919E00E5F20B /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6FDC439A2EBD02CB00385E6B /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6FE951722ED1FA5200D99A4A /* Products */ = {
+			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -119,6 +169,40 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6F0C58B82E94692700821138 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 6FAFC8B02ECB919E00E5F20B /* Products */;
+					ProjectRef = 6FAFC8AF2ECB919E00E5F20B /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6FAFC8762ECB813B00E5F20B /* Products */;
+					ProjectRef = 6FAFC8752ECB813B00E5F20B /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6F0402382EBA9A7900C02985 /* Products */;
+					ProjectRef = 6F0402372EBA9A7900C02985 /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6F66FB8D2ED38446002A26EA /* Products */;
+					ProjectRef = 6F66FB8C2ED38446002A26EA /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6F6970302ED2D0AC00000F3E /* Products */;
+					ProjectRef = 6F69702F2ED2D0AC00000F3E /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6FE951722ED1FA5200D99A4A /* Products */;
+					ProjectRef = 6FE951712ED1FA5200D99A4A /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6FDC439A2EBD02CB00385E6B /* Products */;
+					ProjectRef = 6FDC43992EBD02CB00385E6B /* AiBatteryAlarmClean.xcodeproj */;
+				},
+				{
+					ProductGroup = 6F8DF8642ED76A3F00B998FF /* Products */;
+					ProjectRef = 6F8DF8632ED76A3F00B998FF /* AiBatteryAlarmClean.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				6F0C58B62E94692700821138 /* AiBatteryAlarmClean */,
@@ -278,7 +362,7 @@
 				DEVELOPMENT_TEAM = PXA8Z3N4XN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = AiBatteryAlarmClean/Info.plist;
+				INFOPLIST_FILE = AiBatteryAlarmClean/AiBatteryAlarmClean/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -312,7 +396,7 @@
 				DEVELOPMENT_TEAM = PXA8Z3N4XN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = AiBatteryAlarmClean/Info.plist;
+				INFOPLIST_FILE = AiBatteryAlarmClean/AiBatteryAlarmClean/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

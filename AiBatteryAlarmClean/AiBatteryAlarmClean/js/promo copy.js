@@ -6,8 +6,7 @@ let currentlyPlaying = null;
 let batteryLevel = 50;
 let adsRemoved = false;
 let customAudio = null;
-let lastSosSmsTs = 0;
-let useRealBattery = true;
+let useRealBattery = false;
 let realBatteryLevel = 50;
 let monitoringPaused = false;
 let batteryHealth = "--";
@@ -480,13 +479,20 @@ document.getElementById("menu-toggle").addEventListener("click", () => {
     menu.style.display = menu.style.display === "block" ? "none" : "block";
 });
 
-// Add battery mode toggle to menu (SIMULATION HIDDEN FOR RELEASE)
+// Add battery mode toggle to menu
 function setupBatteryToggle() {
-    // Simulation UI and battery-status menu items are intentionally hidden in release builds.
-    // To re-enable for development, restore the previous implementation.
-    // No DOM changes are performed here to keep the menu clean.
-    console.log("promo.js: setupBatteryToggle — Simulation menu hidden for release");
-    return;
+    const menu = document.getElementById("menu");
+    const batteryToggle = document.createElement("li");
+    batteryToggle.innerHTML = '<a href="#" id="battery-toggle">🔋 Use Real Battery</a>';
+    menu.querySelector("ul").insertBefore(batteryToggle, menu.querySelector("ul").children[3]);
+  
+    document.getElementById("battery-toggle").addEventListener("click", function(e) {
+        e.preventDefault();
+        useRealBattery = !useRealBattery;
+        console.log("Battery mode:", useRealBattery ? "REAL" : "SIMULATION");
+        this.textContent = useRealBattery ? "🎮 Use Simulation" : "🔋 Use Real Battery";
+        document.getElementById("menu").style.display = "none";
+    });
 }
 
 // Initialize battery toggle and preferred sound when page loads
@@ -884,43 +890,35 @@ setInterval(updateBattery, 3000);
       console.log('promo.js: beaconBtn not found (hard-coded HTML may be missing)');
     }
 
-      if (smsBtn) {
-        smsBtn.addEventListener('click', function(e){
-          try { if (e && typeof e.preventDefault === 'function') e.preventDefault(); } catch(e){}
-          try {
-            var now = Date.now();
-            // Debounce: ignore if another SOS_SMS was sent within last 400ms
-            if (now - lastSosSmsTs < 400) {
-              console.log('promo.js: SOS_SMS suppressed (debounce)');
-              return;
-            }
-            lastSosSmsTs = now;
-
-            console.log('promo.js: SOS_SMS button clicked - posting SOS_SMS to native (no JS confirm)');
-            setTimeout(function(){
-              try {
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
-                  window.webkit.messageHandlers.jsLogger.postMessage('SOS_SMS');
-                  console.log('promo.js: SOS_SMS posted to native bridge');
-                } else {
-                  console.warn('promo.js: native bridge not available for SOS_SMS');
-                  // fallback to sms: URL
-                  var deviceLabel = (window.deviceName || navigator.userAgent || 'this device');
-                  var batteryText = (typeof realBatteryLevel !== 'undefined') ? (realBatteryLevel + '%') : '';
-                  var body = encodeURIComponent('Help! This is ' + deviceLabel + '. My battery is ' + batteryText + '.');
-                  window.location.href = 'sms:?body=' + body;
-                }
-              } catch(err) {
-                console.warn('promo.js: SOS_SMS send error', err);
+    if (smsBtn) {
+      smsBtn.addEventListener('click', function(e){
+        try { if (e && typeof e.preventDefault === 'function') e.preventDefault(); } catch(e){}
+        console.log('promo.js: SOS_SMS button clicked - posting SOS_SMS to native (no JS confirm)');
+        try {
+          setTimeout(function(){
+            try {
+              if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+                window.webkit.messageHandlers.jsLogger.postMessage('SOS_SMS');
+                console.log('promo.js: SOS_SMS posted to native bridge');
+              } else {
+                console.warn('promo.js: native bridge not available for SOS_SMS');
+                // fallback to sms: URL
+                var deviceLabel = (window.deviceName || navigator.userAgent || 'this device');
+                var batteryText = (typeof realBatteryLevel !== 'undefined') ? (realBatteryLevel + '%') : '';
+                var body = encodeURIComponent('Help! This is ' + deviceLabel + '. My battery is ' + batteryText + '.');
+                window.location.href = 'sms:?body=' + body;
               }
-            }, 8);
-          } catch(err) {
-            console.warn('promo.js: SOS_SMS outer error', err);
-          }
-        }, { passive: false });
-      } else {
-        console.log('promo.js: smsBtn not found (hard-coded HTML may be missing)');
-      }
+            } catch(err) {
+              console.warn('promo.js: SOS_SMS send error', err);
+            }
+          }, 8);
+        } catch(err) {
+          console.warn('promo.js: SOS_SMS outer error', err);
+        }
+      }, { passive: false });
+    } else {
+      console.log('promo.js: smsBtn not found (hard-coded HTML may be missing)');
+    }
 
     console.log('promo.js: SOS controls wired to hard-coded HTML buttons (inline)');
   } catch(e) {

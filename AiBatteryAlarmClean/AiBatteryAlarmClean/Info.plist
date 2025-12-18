@@ -28,6 +28,13 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+    
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>App-Prefs</string>
+        <string>prefs</string>
+    </array>
+    
 	<key>CFBundleIcons</key>
 	<dict>
 		<key>CFBundlePrimaryIcon</key>
@@ -44,9 +51,13 @@
 	<string>This app needs access to your music library to let you choose custom alarm sounds.</string>
 	<key>NSMediaLibraryUsageDescription</key>
 	<string>This app needs access to your media library to let you choose custom alarm sounds.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app needs permission to save photos to your camera roll</string>
-	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to take photos within the Battery Alarm app</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>This app needs permission to save photos to your camera roll</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>This app needs access to your photo library to choose custom alarm images.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>This app needs camera access to take photos within the Battery Alarm app</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app needs microphone access to record audio for alarms.</string>
 </dict>
 </plist>

@@ -1,6 +1,22 @@
+# Xcode
 .DS_Store
-*.xcuserstate
-*.xcuserdata
 build/
 DerivedData/
-AiBatteryAlarmClean/AiBatteryAlarmClean/AIBatteryAlarm-11-03-25.zip
+.xcuserstate
+xcuserdata/
+.xcworkspace
+xcshareddata/
+
+# Cocoa/Carthage/SwiftPM
+Pods/
+Carthage/
+.build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+
+# Misc
+.swp
+.tmp
+*.log
