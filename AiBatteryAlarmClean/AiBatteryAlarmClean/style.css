@@ -12,7 +12,7 @@ header {
   position: fixed;
   width: 100%;
   top: 0;
-  z-index: 1000;
+  z-index: 3001; /* raised above select (z-index:3000) and right-column slider */
   text-align: right;
   margin-top: -8px;
 }
@@ -92,6 +92,12 @@ main {
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   padding: 10px;
   margin-bottom: 0px;
+
+  /* Ensure the card is the layout bounding box and children do not overflow it */
+  box-sizing: border-box;
+  overflow: visible;       /* allow native select dropdowns to escape card clipping */
+  max-width: 100%;        /* never exceed parent width */
+  word-break: break-word; /* avoid long inline content causing overflow */
 }
 
 #battery {
@@ -183,6 +189,12 @@ select {
   height: 30px;
   text-align: center !important;
   font-size: .8em;
+}
+
+/* Ensure the native select dropdown renders above the right-column volume slider */
+select, #sound-select {
+  position: relative;
+  z-index: 3000; /* higher than the right-column slider */
 }
 
 button {
@@ -328,19 +340,94 @@ a {
 }
 
 
-/* Settings Grid Layout - Narrower side columns */
-.settings-grid { border: 0px solid blue !important;
+/* Settings Grid Layout - use equal side column width so center column is centered */
+.settings-grid {
+    border: 0px solid blue !important;
     width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
     display: grid;
-    grid-template-columns: 80px 1fr 80px;
-    gap: 10px;
+    position: relative;
+
+    /* Left and right columns are equal (64px), center has a min width */
+    grid-template-columns: 64px minmax(220px, 1fr) 64px;
+    gap: 8px;
     align-items: start;
+    justify-items: center;           /* center items within their grid cells */
+    grid-auto-rows: minmax(0, auto);
+    padding-right: 0;                /* removed extra right padding that nudged center left */
+    padding-left: 0;
+    overflow: visible;
+}
+
+/* Responsive fallback: slightly reduce reservations on smaller viewports */
+@media (max-width: 960px) {
+    .settings-grid {
+        grid-template-columns: 56px minmax(180px, 1fr) 56px;
+        gap: 8px;
+    }
+}
+
+/* Responsive fallback: slightly reduce min center width and right-column reservation */
+@media (max-width: 960px) {
+    .settings-grid {
+        grid-template-columns: 48px minmax(180px, 1fr) 88px;
+        gap: 8px;
+    }
+}
+
+/* Responsive fallback: reduce reservations a bit on medium/narrow screens */
+@media (max-width: 680px) {
+    .settings-grid { grid-template-columns: 48px 1fr 72px; gap: 8px; }
+}
+/* Ensure a .right-column placed inside .settings-grid occupies the 3rd column and is visible.
+   This makes the Volume slider part of the grid flow (prevents overlap by center content). */
+.settings-grid > .right-column,
+.settings-grid > #right-column {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    position: relative !important;   /* ensure it participates in grid layout */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 64px !important;          /* match left column */
+    box-sizing: border-box;
+    z-index: 1000 !important;      /* lowered so select popup can appear above */
+    margin-left: 0;                  /* removed margin that offset the visual center */
+}
+
+/* Slight responsive tweak: on narrow screens reduce the right-column reservation */
+@media (max-width: 680px) {
+    .settings-grid { grid-template-columns: 64px 1fr 96px; gap: 8px; }
+}
+
+/* Responsive fallback: on narrow screens let the grid collapse to avoid overflow */
+@media (max-width: 480px) {
+    .settings-grid {
+        grid-template-columns: 64px 1fr 64px;
+        gap: 8px;
+    }
 }
 
 .settings-column {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding: 0;             /* remove any accidental horizontal padding */
+    box-sizing: border-box;
+}
+
+/* Force left and right helper columns to center their inner controls
+   so the visual boxes inside the side columns align with the center column */
+.settings-column.left-column,
+.settings-column.right-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;   /* center things horizontally inside the side cell */
+    justify-content: flex-start;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 /* Left Column - Brightness */
@@ -348,10 +435,13 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 200px;
-    gap: 8px;
+    height: auto;   /* allow the grid to size rows naturally */
+    gap: 6px;
+    padding: 0;
+    box-sizing: border-box;
 }
 
+/* Vertical label used by left column (Brightness) — unchanged appearance */
 .brightness-label {
     writing-mode: vertical-lr;
     transform: rotate(180deg);
@@ -359,6 +449,23 @@ a {
     color: #999;
     font-size: 12px;
     line-height: 1.2;
+    margin: 0;
+    padding: 0;
+}
+
+/* Right-column label (Volume) — keep label on the outside (right), vertical,
+   and vertically centered along the slider area. We *do not* change DOM order. */
+.settings-grid > .right-column .brightness-label,
+.settings-grid > #right-column .brightness-label {
+    /* flip writing mode so text sits on the right side, outside the slider */
+    writing-mode: vertical-rl;      /* vertical, right-to-left flow for outside-right labels */
+    transform: rotate(180deg);      /* keep orientation upright (adjust if you want letters inverted) */
+    margin: 0 0 0 8px !important;   /* nudge label slightly away from the slider (left margin in right-column) */
+    padding: 0 !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+    align-self: center;             /* let label vertically center in the column */
 }
 
 .slider-container {border: 0px solid blue;
@@ -373,7 +480,9 @@ a {
     writing-mode: bt-lr;
     -webkit-appearance: slider-vertical;
     width: 8px;
-    height: 220px;
+    height: 160px; /* reduced from 220 → 160 to keep sliders compact */
+    margin: 0;
+    display: block;
 }
 
 .brightness-value {
@@ -559,3 +668,533 @@ a {
     color: #00b894;
     font-weight: bold;
 }
+/* Ensure right-column icons have vertical spacing so they don't overlap */
+./* Right-column layout + spacing — paste/merge into your CSS file */
+
+/* Right column (volume slider) — predictable fixed placement and guaranteed visibility.
+   When .right-column is a child of .settings-grid the inserted rule (.settings-grid > .right-column)
+   will ensure it occupies the grid. This fallback keeps it usable if outside the grid. */
+#right-column {
+    position: fixed !important;
+    right: 12px !important;
+    top: 72px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    z-index: 1000 !important; /* lowered so select popups can appear above */
+    pointer-events: auto !important;
+
+    /* predictable width so content doesn't overlap it (match grid side width) */
+    width: 64px !important;
+    max-width: 20vw !important;
+}
+
+/* inner spacing for right-column content */
+#right-column .right-icon,
+#right-column .icon-placeholder {
+    margin: 8px 0 !important;
+    box-sizing: border-box;
+}
+
+/* small-screen tweak */
+@media (max-width: 420px) {
+    #right-column { right: 8px; top: 64px; width: 84px !important; }
+    .right-column .right-icon { width: 48px; height: 48px; margin-bottom: 0.85rem; }
+}
+
+/* spacing for right-column inner items */
+#right-column .right-icon,
+#right-column .icon-placeholder {
+    margin: 8px 0 !important;
+    box-sizing: border-box;
+}
+
+/* optional: ensure icons are visible in dark mode */
+.right-column .right-icon .icon {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+/* prevent accidental hiding */
+.right-column[aria-hidden="false"] { visibility: visible; opacity: 1; }
+
+/* small responsive tweak */
+@media (max-width: 420px) {
+    #right-column { right: 8px; top: 64px; }
+    .right-column .right-icon { width: 44px; height: 44px; margin-bottom: 0.9rem; }
+}
+/* Icon-with-caption wrapper */
+.icon-with-caption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Caption styling beneath App Settings */
+.icon-caption {
+    font-size: 11px;
+    color: #9aa0a6;
+    margin-top: 4px;
+    text-align: center;
+    line-height: 1;
+    max-width: 72px;
+}
+
+/* Inline SVG color and size */
+.right-column .icon-svg {
+    width: 26px;
+    height: 26px;
+    color: #fff;
+    opacity: 0.95;
+}
+
+/* On hover make icons slightly brighter */
+.right-column .right-icon:hover .icon-svg { color: #fff; transform: scale(1.03); }
+
+/* Responsive tweak for narrow screens */
+@media (max-width: 420px) {
+    #right-column { right: 8px; top: 64px; }
+    .right-column .right-icon { width: 48px; height: 48px; margin-bottom: 0.85rem; }
+    .icon-caption { font-size: 10px; }
+}
+/* Bottom quick-action icons row — responsive, centered inside the center column.
+   Icons are fixed-size, centered, and WILL NOT scroll horizontally; they will wrap
+   only when the center column is too narrow (mobile). This prevents overlap with the right column. */
+
+.bottom-icons {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;      /* keep icons centered inside the center column */
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    width: 100%;
+    max-width: 100%;
+    padding: 6px 0 8px 0;
+    box-sizing: border-box;
+
+    /* allow wrap only on very narrow centers; do not create horizontal scroll */
+    flex-wrap: wrap;
+    align-content: center;
+    overflow: visible;
+}
+
+/* Buttons: fixed size, do not expand to fill center — prevents pushing into right column */
+.icon-btn {
+    background: transparent !important;
+    border: none !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    width: 56px !important;
+    height: 56px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    padding: 6px !important;
+    box-sizing: border-box;
+    flex: 0 0 auto;           /* fixed: do not grow/shrink unpredictably */
+    max-width: 80px;
+}
+
+/* Emoji size tuned to fit comfortably across the center column */
+.icon-emoji {
+    font-size: 34px !important;
+    line-height: 1 !important;
+    display: inline-block;
+    transform: translateZ(0);
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+}
+
+/* Slightly tighter sizes for very narrow screens */
+@media (max-width: 480px) {
+    .bottom-icons { gap: 8px; }
+    .icon-btn { min-width: 36px !important; min-height: 36px !important; width: 48px !important; height: 48px !important; padding: 4px !important; }
+    .icon-emoji { font-size: 28px !important; }
+}
+
+/* Buttons: flexible, share available row space, with reasonable min/max sizes */
+.icon-btn {
+    background: transparent !important;
+    border: none !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    width: auto !important;
+    height: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    padding: 6px !important;
+    box-sizing: border-box;
+    flex: 1 1 0;       /* allow icons to shrink/grow and share space evenly */
+    max-width: 96px;   /* cap size so icons don't blow up on wide screens */
+}
+
+/* Emoji size tuned to fit across the center column */
+.icon-emoji {
+    font-size: 32px !important;
+    line-height: 1 !important;
+    display: inline-block;
+    transform: translateZ(0);
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+}
+
+/* Slightly tighter distribution on narrow screens (icons stay on one line by shrinking) */
+@media (max-width: 480px) {
+    .bottom-icons { gap: 8px; }
+    .icon-btn { min-width: 36px !important; min-height: 36px !important; max-width: 72px; padding: 4px !important; flex: 1 1 0; }
+    .icon-emoji { font-size: 28px !important; }
+}
+
+/* transparent square button that contains the emoji */
+.icon-btn {
+    background: transparent !important;
+    border: none !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    width: 52px !important;
+    height: 52px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    padding: 6px !important;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+}
+
+/* The icon visuals — slightly smaller to help fit on one line */
+.icon-emoji {
+    font-size: 32px !important;
+    line-height: 1 !important;
+    display: inline-block;
+    transform: translateZ(0);
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+}
+
+/* hover/active affordance */
+.icon-btn:hover .icon-emoji { filter: brightness(1.08); transform: scale(1.03); }
+.icon-btn:active .icon-emoji { transform: scale(0.98); }
+
+/* small-screen adjustments: still single-line; horizontal scroll may appear on small narrow screens */
+@media (max-width: 480px) {
+    .bottom-icons { gap: 8px; padding: 6px 4px 8px 4px; max-width: calc(100% - 88px); }
+    .icon-btn { min-width: 40px !important; min-height: 40px !important; width: 48px !important; height: 48px !important; padding: 4px !important; }
+    .icon-emoji { font-size: 28px !important; }
+}
+/* ===== Overrides specific to the settings card to stabilize layout ===== */
+
+/* 1) Ensure right-column inside the grid is top-aligned and compact */
+.settings-grid > .right-column,
+.settings-grid > #right-column {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    position: relative !important;   /* participate in grid flow */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;  /* -> anchor slider to the top */
+    width: 96px !important;
+    box-sizing: border-box;
+    padding-top: 6px !important;
+    margin-left: 6px !important;
+    z-index: 500 !important; /* lowered so select popup (z-index:3000) can overlay */
+}
+/* Ensure right-column slider block aligns to the top and mirrors left-column positioning */
+.settings-grid > .right-column .brightness-control,
+.settings-grid > #right-column .brightness-control {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start !important; /* anchor slider to top of the column */
+  margin-top: 0 !important;
+  padding-top: 6px !important; /* small top padding to match left column spacing */
+  box-sizing: border-box;
+}
+
+/* Make sure the right-column inner control stays compact, aligned top */
+.settings-grid > .right-column .brightness-control,
+.settings-grid > #right-column .brightness-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;  /* keep the slider at the top of the column */
+    gap: 6px;
+    height: auto;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Ensure volume label sits snug next to the slider */
+.settings-grid > .right-column .brightness-label,
+.settings-grid > #right-column .brightness-label {
+    font-size: 10.5px !important;
+    line-height: 1 !important;
+    margin: 4px 0 0 4px !important;
+    padding: 0 !important;
+    white-space: nowrap;
+}
+
+/* 2) Force bottom-icons in the center column to display as a single compact row.
+   Use a selector scoped to .settings-grid so it overrides generic .icon-btn rules. */
+.settings-grid .bottom-icons {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 6px 0 8px 0 !important;
+    box-sizing: border-box !important;
+
+    /* Try to keep single-line; allow wrap only as absolute last resort on very small screens */
+    flex-wrap: nowrap !important;
+    overflow: visible !important;
+}
+
+/* Make these icon buttons small, fixed and non-stretching so four fit in a row */
+.settings-grid .bottom-icons .icon-btn {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    padding: 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    max-width: 64px !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Icon glyph size */
+.settings-grid .bottom-icons .icon-emoji {
+    font-size: 30px !important;
+    line-height: 1 !important;
+}
+
+/* On very narrow devices allow wrapping (graceful) */
+@media (max-width: 420px) {
+    .settings-grid .bottom-icons { gap: 6px !important; flex-wrap: wrap !important; }
+    .settings-grid .bottom-icons .icon-btn { width: 44px !important; height: 44px !important; min-width: 40px !important; }
+    .settings-grid .bottom-icons .icon-emoji { font-size: 26px !important; }
+}
+
+/* Extra safety: if other generic .icon-btn rules later are more specific, add last-resort specificity */
+.settings-grid .bottom-icons .icon-btn[role], /* selector with attribute to increase specificity */
+.settings-grid .bottom-icons .icon-btn[id] {
+    width: 48px !important;
+    height: 48px !important;
+    flex: 0 0 auto !important;
+}
+/* ===== Immediate fix: ensure right-column top-aligns and bottom icons stay one row ===== */
+
+/* 1) Strong override for right-column when it is inside the settings grid.
+   This has higher specificity than the generic #right-column rule and will
+   force the element to behave as a grid child (not fixed), and anchor content to top. */
+.card .settings-grid > #right-column,
+.card .settings-grid > .right-column {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+  align-self: start !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important; /* anchor slider to the top */
+  width: 96px !important;   /* leave room for the slider + label */
+  padding-top: 6px !important;
+  box-sizing: border-box !important;
+  z-index: 1000 !important; /* lowered so select popup can appear above */
+  margin-left: 6px !important;
+}
+
+/* 2) Make the right-column inner control compact and top aligned */
+.card .settings-grid > #right-column .brightness-control,
+.card .settings-grid > .right-column .brightness-control {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start !important; /* ensure slider sits at top */
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+
+/* 3) If any generic fixed #right-column rule still applies elsewhere, override
+   the problematic top/position values so the grid placement wins. */
+.card .settings-grid > #right-column {
+  position: relative !important;
+  top: 0 !important;
+  right: 0 !important;
+}
+
+/* 4) Bottom icons: force a compact single-row layout inside the center column */
+.settings-grid .bottom-icons {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 6px 0 8px 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+
+  /* prefer single-line; wrap only on very narrow screens */
+  flex-wrap: nowrap !important;
+  overflow: visible !important;
+}
+
+/* compact icon sizing (scoped to settings-grid so global icon-btn rules don't win) */
+.settings-grid .bottom-icons .icon-btn {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  padding: 4px !important;
+  flex: 0 0 auto !important;
+  max-width: 64px !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* icon glyph size */
+.settings-grid .bottom-icons .icon-emoji {
+  font-size: 32px !important;
+}
+
+/* allow graceful wrapping only on very narrow viewports */
+@media (max-width: 420px) {
+  .settings-grid .bottom-icons { gap: 8px !important; flex-wrap: wrap !important; }
+  .settings-grid .bottom-icons .icon-btn { width: 44px !important; height: 44px !important; }
+  .settings-grid .bottom-icons .icon-emoji { font-size: 26px !important; }
+}
+/* Make the bottom icon row span the entire settings grid (colspan across 3 columns)
+   and provide a full-width, centered area (good for a future carousel). */
+.settings-grid > .bottom-icons,
+.settings-grid > #bottom-icons-row {
+    grid-column: 1 / -1;           /* span all columns (colspan) */
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 16px !important;          /* spacing between icons */
+    padding: 12px 8px 20px 8px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-wrap: nowrap !important;  /* keep one line; change to wrap for very narrow screens */
+    overflow-x: auto !important;   /* allow horizontal scroll for carousel in future (optional) */
+    -webkit-overflow-scrolling: touch !important;
+}
+
+/* Make sure buttons inside this full-width row are compact and don't expand grid cells */
+.settings-grid > .bottom-icons .icon-btn,
+.settings-grid > #bottom-icons-row .icon-btn {
+    flex: 0 0 auto !important;    /* do not stretch to fill center column */
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    max-width: 72px !important;
+    padding: 6px !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Icon glyph sizing inside the full-width row */
+.settings-grid > .bottom-icons .icon-emoji,
+.settings-grid > #bottom-icons-row .icon-emoji {
+    font-size: 34px !important;
+}
+
+/* Responsive fallback: on very narrow screens allow the row to wrap
+   (or keep overflow-x: auto if you prefer a carousel scroll) */
+@media (max-width: 420px) {
+    .settings-grid > .bottom-icons,
+    .settings-grid > #bottom-icons-row {
+        gap: 10px !important;
+        flex-wrap: wrap !important;  /* allow wrap on tiny widths */
+        overflow-x: visible !important;
+    }
+    .settings-grid > .bottom-icons .icon-btn,
+    .settings-grid > #bottom-icons-row .icon-btn {
+        width: 48px !important;
+        height: 48px !important;
+    }
+}
+/* if the right slider needs one tiny lift to perfectly match left slider, adjust top padding */
+.settings-grid > .right-column .slider-container,
+.settings-grid > #right-column .slider-container {
+    margin-top: -10px; /* increase to push slider down; use negative values to lift up */
+}
+/* ===== Volume label: place to the outside-right of the vertical slider and vertically center it ===== */
+
+/* Ensure right-column control participates in the grid and is an anchoring container */
+.card .settings-grid > #right-column,
+.card .settings-grid > .right-column {
+  position: relative !important;   /* let its children be positioned relative to this container */
+}
+
+/* Normalize brightness label base so both left and right use exact same font-size */
+.brightness-label {
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+  text-align: center;
+  color: #999;
+  font-size: 12px;       /* exact font-size to match Brightness label */
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+/* Right-column specific label (the new .right-label class), outside and vertically centered.
+   This positions the label to the right of the slider (outside the slider container)
+   while keeping identical font-size and orientation to the left label. */
+.card .settings-grid > #right-column .brightness-label.right-label,
+.card .settings-grid > .right-column .brightness-label.right-label {
+  position: absolute !important;
+  /* place label just to the right of the slider area inside the right-column */
+  right: 18px !important;         /* nudges the label outside the slider; adjust +/- a few px if needed */
+  top: 50% !important;             /* vertically center relative to the slider area */
+  transform: translateY(-50%) rotate(180deg) !important; /* keep same visual rotation/orientation */
+  writing-mode: vertical-rl !important;  /* vertical flow on the right side */
+  font-size: 12px !important;      /* force same font-size */
+  line-height: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none;            /* label shouldn't intercept taps */
+}
+
+/* Safety: ensure the slider container inside the right-column is not shifted by the absolute label */
+.card .settings-grid > #right-column .slider-container,
+.card .settings-grid > .right-column .slider-container {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* If you prefer the label a little closer/farther from the slider, tweak the right value above:
+   - smaller magnitude (e.g. right: -14px) moves it closer to the slider,
+   - larger magnitude (e.g. right: -22px) moves it further out.
+*/
