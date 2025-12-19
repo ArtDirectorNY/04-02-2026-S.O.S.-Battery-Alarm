@@ -26,23 +26,9 @@
 		6FE951712ED1FA5200D99A4A /* AiBatteryAlarmClean.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = AiBatteryAlarmClean.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		6F424F922EABFBEA002907DE /* Exceptions for "AiBatteryAlarmClean" folder in "AiBatteryAlarmClean" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"AiBatteryAlarmClean/ VolumeScriptMessageHandler.swift",
-				AiBatteryAlarmClean/Info.plist,
-			);
-			target = 6F0C58B62E94692700821138 /* AiBatteryAlarmClean */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6F0C58B92E94692700821138 /* AiBatteryAlarmClean */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				6F424F922EABFBEA002907DE /* Exceptions for "AiBatteryAlarmClean" folder in "AiBatteryAlarmClean" target */,
-			);
 			path = AiBatteryAlarmClean;
 			sourceTree = "<group>";
 		};
