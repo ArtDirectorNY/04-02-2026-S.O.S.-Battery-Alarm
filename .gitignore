@@ -1,0 +1,73 @@
+# ===========================
+# Xcode / iOS .gitignore
+# ===========================
+
+# Build artefacts
+build/
+DerivedData/
+*.o
+*.a
+*.dylib
+*.dSYM
+
+# Xcode user-specific settings
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Xcode schemes (keep shared schemes, ignore personal ones)
+!*.xcodeproj/xcshareddata/
+*.xcodeproj/xcuserdata/
+
+# CocoaPods (if added later)
+Pods/
+Podfile.lock
+
+# Swift Package Manager build
+.build/
+*.resolved          # keep if you want reproducible builds; remove this line to track it
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Carthage
+Carthage/Build/
+
+# Accio
+Dependencies/
+.accio/
+
+# macOS artefacts
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# SwiftLint cache
+.swiftlint.cache
+
+# Archives / IPAs
+*.ipa
+*.xcarchive
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Instruments trace files
+*.trace
+
+# TestFlight / App Store Connect metadata (add back specific files you want to track)
+AuthKey_*.p8
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
