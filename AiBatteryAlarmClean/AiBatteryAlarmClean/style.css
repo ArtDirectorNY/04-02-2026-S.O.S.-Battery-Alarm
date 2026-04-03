@@ -725,6 +725,7 @@ a {
 @media (max-width: 420px) {
     #right-column { right: 8px; top: 64px; }
     .right-column .right-icon { width: 44px; height: 44px; margin-bottom: 0.9rem; }
+    .icon-caption { font-size: 10px; }
 }
 /* Icon-with-caption wrapper */
 .icon-with-caption {
@@ -1023,7 +1024,7 @@ a {
   width: 96px !important;   /* leave room for the slider + label */
   padding-top: 6px !important;
   box-sizing: border-box !important;
-  z-index: 1000 !important; /* lowered so select popup can appear above */
+  z-index: 1000 !important; /* lowered so select popup (z-index:3000) can appear above */
   margin-left: 6px !important;
 }
 
@@ -1066,20 +1067,20 @@ a {
 
 /* compact icon sizing (scoped to settings-grid so global icon-btn rules don't win) */
 .settings-grid .bottom-icons .icon-btn {
-  width: 48px !important;
-  height: 48px !important;
-  min-width: 44px !important;
-  min-height: 44px !important;
-  padding: 4px !important;
-  flex: 0 0 auto !important;
-  max-width: 64px !important;
-  background: transparent !important;
-  border: none !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 4px !important;
+    flex: 0 0 auto !important;
+    max-width: 64px !important;
+    background: transparent !important;
+    border: none !important;
 }
 
 /* icon glyph size */
 .settings-grid .bottom-icons .icon-emoji {
-  font-size: 32px !important;
+    font-size: 32px !important;
 }
 
 /* allow graceful wrapping only on very narrow viewports */
@@ -1109,7 +1110,7 @@ a {
 
 /* Make sure buttons inside this full-width row are compact and don't expand grid cells */
 .settings-grid > .bottom-icons .icon-btn,
-.settings-grid > #bottom-icons-row .icon-btn {
+.settings-grid > #bottom-icons_row .icon-btn {
     flex: 0 0 auto !important;    /* do not stretch to fill center column */
     width: 56px !important;
     height: 56px !important;

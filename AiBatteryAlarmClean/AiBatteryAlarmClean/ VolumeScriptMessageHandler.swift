@@ -1,17 +1,6 @@
-//
 // VolumeScriptMessageHandler.swift
 // Small, focused WKScriptMessageHandler to accept `setSystemVolume` messages from the web page
 // and update the system volume. Also exposes a helper to push current volume back to the web view.
-//
-// Usage:
-// 1) Register the handler with the web view's userContentController:
-//      webView.configuration.userContentController.add(VolumeScriptMessageHandler(webView: webView), name: "setSystemVolume")
-//
-// 2) On webview deinit/remove, remove the handler:
-//      webView.configuration.userContentController.removeScriptMessageHandler(forName: "setSystemVolume")
-//
-// 3) To update the page with the current volume:
-//      VolumeScriptMessageHandler.setCurrentVolumeOnWebView(webView)
 //
 import Foundation
 import WebKit
@@ -97,11 +86,7 @@ final class VolumeScriptMessageHandler: NSObject, WKScriptMessageHandler {
                     updateSliderAndFireEvents(tmpSlider)
                 } else {
                     // As a last resort try KVC set (best-effort; avoid unless needed)
-                    do {
-                        try tmp.setValue(target, forKey: "volume")
-                    } catch {
-                        // ignore silently
-                    }
+                    tmp.setValue(target, forKey: "volume")
                 }
 
                 // Remove temporary MPVolumeView after a tiny delay so the system has time to register the change.

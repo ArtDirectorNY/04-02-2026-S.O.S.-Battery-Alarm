@@ -39,7 +39,9 @@
   }
 
   function sendAppVolume(value) {
+    // Ensure page audio updated immediately (keeps UI in-sync)
     setPageAudioVolumes(value);
+
     var msg = 'SET_ALARM_VOLUME:' + Math.round(value);
     if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
       try { window.webkit.messageHandlers.jsLogger.postMessage(msg); }
@@ -49,15 +51,29 @@
     }
   }
 
+  // Debounce native bridge posts to avoid flooding native with rapid input events.
+  var pendingVolumeTimeout = null;
+  var debounceMs = 250; // conservative debounce interval
+
   slider.addEventListener('input', function (ev) {
     var v = Number(ev.target.value || 0);
     updateDisplay(v);
-    requestAnimationFrame(function () { sendAppVolume(v); });
+    // Update in-page audio immediately for responsive feedback
+    setPageAudioVolumes(v);
+
+    // Debounce the native post
+    if (pendingVolumeTimeout) clearTimeout(pendingVolumeTimeout);
+    pendingVolumeTimeout = setTimeout(function () {
+      pendingVolumeTimeout = null;
+      sendAppVolume(v);
+    }, debounceMs);
   }, { passive: true });
 
+  // On explicit change (finalized by user), send immediately (cancel any debounce)
   slider.addEventListener('change', function (ev) {
     var v = Number(ev.target.value || 0);
     updateDisplay(v);
+    if (pendingVolumeTimeout) { clearTimeout(pendingVolumeTimeout); pendingVolumeTimeout = null; }
     sendAppVolume(v);
   });
 

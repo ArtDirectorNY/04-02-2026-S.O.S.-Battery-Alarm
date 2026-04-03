@@ -5,6 +5,7 @@ import CoreHaptics
 import AVFoundation
 import MediaPlayer
 import AudioToolbox
+import UserNotifications
 
 class AlarmManager: NSObject {
     static let shared = AlarmManager()
@@ -24,6 +25,15 @@ class AlarmManager: NSObject {
     // Core Haptics engine (lazily created when needed)
     @available(iOS 13.0, *)
     private var hapticEngine: CHHapticEngine?
+
+    // Haptics availability tracking: when an attempt to start the engine fails we avoid
+    // retrying continuously and will wait 'hapticRetryInterval' seconds before retrying.
+    private var hapticsUnavailableUntil: Date?
+    private let hapticRetryInterval: TimeInterval = 10.0
+
+    // A cancelable work item used to delay stopping the CHHapticEngine so short cycles
+    // of start/stop don't thrash the haptics service.
+    private var hapticStopWorkItem: DispatchWorkItem?
 
     private override init() {
         super.init()
@@ -59,6 +69,7 @@ class AlarmManager: NSObject {
     // MARK: - System Volume Observation / Vibration Helpers
 
     // Prepare a reusable CHHapticEngine if the device supports Core Haptics.
+    // Uses a short retry cooldown to avoid repeating failing attempts rapidly.
     private func prepareHapticsIfNeeded() {
         if #available(iOS 13.0, *) {
             let caps = CHHapticEngine.capabilitiesForHardware()
@@ -66,30 +77,52 @@ class AlarmManager: NSObject {
                 // Device doesn't support Core Haptics
                 return
             }
+
+            // If we've recently seen a failing attempt, skip until cooldown expires
+            if let until = hapticsUnavailableUntil, Date() < until {
+                // Silently skip attempting to re-create the engine until cooldown expires.
+                return
+            }
+
             // Lazily create and start engine if not already prepared
             if hapticEngine == nil {
                 do {
                     hapticEngine = try CHHapticEngine()
                     // Try to start it (best-effort). If start throws, nil it out.
                     try hapticEngine?.start()
+                    // Cancel any previously scheduled stop — we successfully started
+                    hapticStopWorkItem?.cancel()
+                    hapticStopWorkItem = nil
+                    hapticsUnavailableUntil = nil
                     print("📳 AlarmManager: CHHapticEngine prepared")
                 } catch {
-                    print("📳 AlarmManager: CHHapticEngine prepare error: \(error.localizedDescription)")
+                    // Record a cooldown so we don't hammer the haptics service repeatedly.
                     hapticEngine = nil
+                    hapticsUnavailableUntil = Date().addingTimeInterval(hapticRetryInterval)
+                    print("📳 AlarmManager: CHHapticEngine prepare failed — will retry in \(Int(hapticRetryInterval))s")
                 }
             }
         }
     }
 
-    // Stop and release the CHHapticEngine if we created one
+    // Stop and release the CHHapticEngine if we created one (delayed/cancelable to reduce churn)
     private func stopHapticsEngineIfNeeded() {
         if #available(iOS 13.0, *) {
-            if let engine = hapticEngine {
-                // stop(completionHandler:) is the appropriate API
-                engine.stop(completionHandler: nil)
-                hapticEngine = nil
-                print("📳 AlarmManager: CHHapticEngine stopped")
+            // Cancel any previously-scheduled stop (we'll reschedule)
+            hapticStopWorkItem?.cancel()
+
+            // Schedule a delayed stop so quick restart cycles avoid tearing down the engine.
+            let work = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                if let engine = self.hapticEngine {
+                    engine.stop(completionHandler: nil)
+                    self.hapticEngine = nil
+                    print("📳 AlarmManager: CHHapticEngine stopped (delayed)")
+                }
             }
+            hapticStopWorkItem = work
+            // 4 seconds is a compromise: short enough not to leak resources, long enough to avoid rapid thrash.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: work)
         }
     }
 
@@ -136,6 +169,7 @@ class AlarmManager: NSObject {
     }
 
     // Trigger a short vibration if criteria met (prefer CoreHaptics, then UIFeedbackGenerator, then AudioServices)
+    // Uses hapticsUnavailableUntil to avoid repeated failing attempts.
     private func triggerVibrationIfNeeded() {
         guard shouldVibrateForCurrentVolumes() else { return }
 
@@ -143,13 +177,14 @@ class AlarmManager: NSObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
-            // 1) Try Core Haptics (iOS 13+). Prefer a prepared engine if available.
+            // 1) Try Core Haptics (iOS 13+). Prefer a prepared engine if available and not in cooldown.
             if #available(iOS 13.0, *) {
                 let caps = CHHapticEngine.capabilitiesForHardware()
                 if caps.supportsHaptics {
                     // Ensure engine exists (prepare if needed)
                     self.prepareHapticsIfNeeded()
 
+                    // If engine unavailable (due to cooldown), fall through quietly to other options
                     if let engine = self.hapticEngine {
                         do {
                             // Create a short transient pattern and play it on the prepared engine
@@ -159,21 +194,25 @@ class AlarmManager: NSObject {
                             let pattern = try CHHapticPattern(events: [event], parameters: [])
                             let player = try engine.makePlayer(with: pattern)
                             try player.start(atTime: 0)
-                            // Stop the player after the transient finishes (use stop(atTime:) with a 0 argument)
+                            // Stop the player after the transient finishes
                             DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) {
                                 try? player.stop(atTime: 0)
                             }
-                            print("📳 AlarmManager: CHHapticEngine vibration triggered (alarmVolume=\(self.alarmVolume), systemVolume=\(self.systemVolume))")
+                            // Successful play - do a minimal log
+                            print("📳 AlarmManager: CHHapticEngine vibration triggered")
                             return
                         } catch {
-                            print("📳 AlarmManager: CHHapticEngine play error: \(error.localizedDescription) — falling back")
-                            // fall through to next option
+                            // Mark a short cooldown to avoid repeated failing attempts and fall back
+                            self.hapticEngine = nil
+                            self.hapticsUnavailableUntil = Date().addingTimeInterval(self.hapticRetryInterval)
+                            print("📳 AlarmManager: CHHapticEngine play failed — using fallback haptics (retry in \(Int(self.hapticRetryInterval))s)")
+                            // fall through to UIFeedbackGenerator fallback
                         }
                     }
                 }
             }
 
-            // 2) Try UIFeedbackGenerator (iOS 10+). Use a quick double pulse to increase noticeability on faint devices.
+            // 2) UIFeedbackGenerator fallback (iOS 10+)
             if #available(iOS 10.0, *) {
                 let generator = UINotificationFeedbackGenerator()
                 generator.prepare()
@@ -181,16 +220,16 @@ class AlarmManager: NSObject {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                     generator.notificationOccurred(.warning)
                 }
-                print("📳 AlarmManager: UIFeedbackGenerator vibration triggered (alarmVolume=\(self.alarmVolume), systemVolume=\(self.systemVolume))")
+                print("📳 AlarmManager: UIFeedbackGenerator vibration triggered")
                 return
             }
 
-            // 3) Fallback to classic vibration for very old devices / OS — do two quick pulses
+            // 3) Classic vibration fallback
             AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                 AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
             }
-            print("📳 AlarmManager: AudioServicesPlaySystemSound vibration triggered (alarmVolume=\(self.alarmVolume), systemVolume=\(self.systemVolume))")
+            print("📳 AlarmManager: classic vibration triggered")
         }
     }
 
@@ -234,6 +273,18 @@ class AlarmManager: NSObject {
     // Play a bundled default sound by logical name via native playback (honors alarmVolume)
     // Returns true if native playback started, false if resource missing or playback failed.
     func playDefault(named: String) -> Bool {
+        // Safety: if the device is charging and the battery is at-or-below the configured low threshold,
+        // suppress playing the native alarm sound/vibration. This prevents alarm noise while the device is charging.
+        let deviceLevel = UIDevice.current.batteryLevel
+        let deviceState = UIDevice.current.batteryState
+        let storedLow = Float(UserDefaults.standard.object(forKey: "lowThreshold") as? Double ?? 0.20)
+        if deviceLevel >= 0 && (deviceState == .charging || deviceState == .full) && deviceLevel <= storedLow {
+            print("⛔ playDefault suppressed: device charging and battery \(Int(deviceLevel * 100))% <= lowThreshold \(Int(storedLow * 100))%")
+            // Ensure any existing audio/haptics are stopped
+            stopAlarm()
+            return false
+        }
+
         // Map logical name -> resource filename (without extension)
         let mapping: [String: String] = [
             "default": "beep_short",    // use bundled beep_short.mp3 as the default short beep
@@ -323,7 +374,107 @@ class AlarmManager: NSObject {
         }
     }
 
+    // MARK: - Local Notifications for Background Alarms
+    private let repeatingNotificationIdentifier = "alarm.repeating"
+
+    private func scheduleRepeatingLocalNotification(batteryLevel: Int, message: String? = nil) {
+        // Diagnostic origin log so we can trace repeating notifications to AlarmManager
+        print("AlarmManager: scheduleRepeatingLocalNotification called (origin=AlarmManager) for battery:\(batteryLevel)%")
+
+        let center = UNUserNotificationCenter.current()
+        // Check authorization status first (best-effort)
+        center.getNotificationSettings { settings in
+            // Diagnostic: print full settings so we can verify whether alerts/sound/banners are allowed
+            print("ℹ️ UNNotificationSettings - auth:\(settings.authorizationStatus.rawValue) alert:\(settings.alertSetting.rawValue) sound:\(settings.soundSetting.rawValue) badge:\(settings.badgeSetting.rawValue) lockScreen:\(settings.lockScreenSetting.rawValue) notificationCenter:\(settings.notificationCenterSetting.rawValue) criticalAlert:\(settings.criticalAlertSetting.rawValue) showPreviews:\(settings.showPreviewsSetting.rawValue)")
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                // Not authorized — nothing to do
+                print("❗ scheduleRepeatingLocalNotification: notifications not authorized")
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = "🔋 Battery High!"
+            // Use explicit message when provided; otherwise fallback to battery percent
+            content.body = message ?? "Battery is at \(batteryLevel)%"
+            content.sound = UNNotificationSound.default
+
+            // 1) Long-term repeating trigger at 60s (system repeats require >= 60s)
+            let repeatingTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: true)
+            let repeatingRequest = UNNotificationRequest(identifier: self.repeatingNotificationIdentifier, content: content, trigger: repeatingTrigger)
+
+            center.add(repeatingRequest) { error in
+                if let error = error {
+                    print("❌ scheduleRepeatingLocalNotification repeating add error: \(error.localizedDescription)")
+                } else {
+                    print("✅ Background notification scheduled (repeating every 60s) for battery: \(batteryLevel)%")
+                }
+            }
+
+            // 2) Immediate one-shot notification to force a banner right away (~1s)
+            let immediateContent = UNMutableNotificationContent()
+            immediateContent.title = content.title
+            immediateContent.body = content.body
+            immediateContent.sound = content.sound
+
+            let immediateTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 1.0, repeats: false)
+            let immediateRequest = UNNotificationRequest(identifier: self.repeatingNotificationIdentifier + ".now", content: immediateContent, trigger: immediateTrigger)
+
+            center.add(immediateRequest) { err in
+                if let err = err {
+                    print("❌ scheduleRepeatingLocalNotification immediate add error: \(err.localizedDescription)")
+                } else {
+                    print("✅ Immediate background notification scheduled for battery: \(batteryLevel)%")
+                }
+            }
+
+            // 3) Schedule a small set of fallback one-shot notifications at 60s intervals (next 5 occurrences).
+            // These use distinct identifiers so they are not removed by the simple repeating-identifier removal.
+            let occurrences = 5
+            for i in 1...occurrences {
+                let delay = TimeInterval(60 * i)
+                let id = "\(self.repeatingNotificationIdentifier).once.\(i)"
+                let oneShotTrigger = UNTimeIntervalNotificationTrigger(timeInterval: max(2.0, delay), repeats: false)
+                let oneShotRequest = UNNotificationRequest(identifier: id, content: immediateContent, trigger: oneShotTrigger)
+                center.add(oneShotRequest) { err in
+                    if let err = err {
+                        print("❌ scheduleRepeatingLocalNotification one-shot add error (i=\(i)): \(err.localizedDescription)")
+                    } else {
+                        print("✅ One-shot background notification scheduled at +\(Int(delay))s for battery: \(batteryLevel)% (id=\(id))")
+                    }
+                }
+            }
+        }
+    }
+
+    private func cancelRepeatingLocalNotification() {
+        let center = UNUserNotificationCenter.current()
+
+        // Build the list of identifiers we may have added so we can remove them all.
+        var ids: [String] = [repeatingNotificationIdentifier,
+                             repeatingNotificationIdentifier + ".now"]
+
+        // Add the one-shot ids we schedule (once.1 .. once.5)
+        for i in 1...5 {
+            ids.append("\(repeatingNotificationIdentifier).once.\(i)")
+        }
+
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removeDeliveredNotifications(withIdentifiers: ids)
+        print("🛑 Repeating background notification cancelled (ids removed: \(ids.count))")
+    }
+
     func startAlarm() {
+        // If device is charging and battery <= low threshold, suppress starting the alarm.
+        let deviceLevel = UIDevice.current.batteryLevel
+        let deviceState = UIDevice.current.batteryState
+        let storedLow = Float(UserDefaults.standard.object(forKey: "lowThreshold") as? Double ?? 0.20)
+        if deviceLevel >= 0 && (deviceState == .charging || deviceState == .full) && deviceLevel <= storedLow {
+            print("⛔ startAlarm suppressed: device charging and battery \(Int(deviceLevel * 100))% <= lowThreshold \(Int(storedLow * 100))%")
+            // Ensure we are not currently playing
+            stopAlarm()
+            return
+        }
+
         print("🔊 Starting alarm - checking for custom music")
 
         // If custom music is already playing, don't restart it
@@ -345,9 +496,19 @@ class AlarmManager: NSObject {
             return
         }
 
-        // Fall back to the default alarm sound
-        print("🔊 No custom music, playing default alarm")
-        _ = playDefault(named: "default")
+        // Fall back to the preferred default alarm sound (persisted from JS selection)
+        let preferred = UserDefaults.standard.string(forKey: "preferredAlarmSound") ?? "default"
+        let soundToPlay = (preferred == "custom") ? "default" : preferred
+
+        print("🔊 No custom music, playing preferred alarm: \(soundToPlay)")
+        let started = playDefault(named: soundToPlay)
+        if started {
+            // Schedule repeating native notifications while alarm is active.
+            // We schedule an immediate one-shot and a 60s repeating trigger. Message set for HIGH.
+            let percent = Int(deviceLevel * 100)
+            let highMessage = "Sufficiently charged (per your settings). Unplug the device. (Battery: \(percent)%)"
+            scheduleRepeatingLocalNotification(batteryLevel: percent, message: highMessage)
+        }
     }
 
     private func playCustomMusic(url: URL) {
@@ -409,23 +570,36 @@ class AlarmManager: NSObject {
     func stopAlarm() {
         print("🛑 Stop alarm requested")
 
-        // Only stop if actually playing
+        // Stop custom music if playing
         if let player = musicPlayer, player.rate != 0 {
             player.pause()
             print("🛑 Custom music alarm stopped")
         }
 
+        // Stop default/native audio if playing
         if let player = audioPlayer, player.isPlaying {
             player.stop()
             print("🛑 Default alarm stopped")
         }
 
-        // Don't nil out the players, just pause them
-        // This allows us to resume without reloading
-
-        // Remove notification observer only if we have a music player
-        if musicPlayer != nil {
-            NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
+        // Stop any preview playback
+        if let pp = previewPlayer, pp.isPlaying {
+            pp.stop()
+            previewPlayer = nil
+            print("⏹️ Preview stopped")
         }
+
+        // Stop and release haptics engine if we created one
+        stopHapticsEngineIfNeeded()
+
+        // Cancel any repeating background notifications scheduled for this alarm
+        cancelRepeatingLocalNotification()
+
+        // Remove AVPlayer loop observer (safe to call even if none)
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
+
+        // Note: keep player objects around (not nil'ing) so UI/resume behavior remains fast.
     }
 }
+
+

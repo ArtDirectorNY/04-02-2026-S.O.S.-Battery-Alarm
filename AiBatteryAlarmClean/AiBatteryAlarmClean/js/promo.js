@@ -2,6 +2,7 @@
 let musicPickerOpen = false;
 let alarmActive = false;
 let lastTriggeredLevel = null;
+let lastPlayTs = 0;
 let currentlyPlaying = null;
 let batteryLevel = 50;
 let adsRemoved = false;
@@ -12,6 +13,10 @@ let realBatteryLevel = 50;
 let monitoringPaused = false;
 let batteryHealth = "--";
 let chargingState = "--";
+
+// Threshold post guards
+let suppressThresholdPost = false;
+let lastSentThresholds = { low: null, high: null };
 
 const batteryDisplay = document.getElementById("battery-percent");
 const batteryBar = document.getElementById("battery-bar");
@@ -146,6 +151,12 @@ function applyPreferredSoundOnLoad() {
                 soundSelect.value = stored;
                 removeDefaultLabel();
                 console.log("promo.js: Applied stored preferredAlarmSound =", stored);
+                // Tell native the preferred sound on load
+                try {
+                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+                        window.webkit.messageHandlers.jsLogger.postMessage("SET_PREFERRED_SOUND:" + stored);
+                    }
+                } catch (e) { console.warn("promo.js: failed to post SET_PREFERRED_SOUND on load", e); }
                 return;
             }
         }
@@ -309,6 +320,7 @@ function playSound() {
             // mark that an alarm is active (native)
             alarmActive = true;
             lastTriggeredLevel = batteryLevel;
+            lastPlayTs = Date.now();
         }
         return;
     }
@@ -321,39 +333,55 @@ function playSound() {
         try { audio.pause(); audio.currentTime = 0; } catch(e) {}
     });
 
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
-        try {
-            // Ask native to play the default sound by name (e.g., "default", "slide_whistle")
-            window.webkit.messageHandlers.jsLogger.postMessage("PLAY_DEFAULT:" + selected);
-            // mark that an alarm is active (native)
-            alarmActive = true;
-            lastTriggeredLevel = batteryLevel;
-        } catch (e) {
-            console.warn("promo.js: failed to post PLAY_DEFAULT to native:", e);
-            // Fallback to in-page audio playback if native bridge fails
-            const fallback = soundMap[selected];
-            if (fallback) {
-                try {
-                    // Use helper to enforce app volume robustly while starting playback
-                    enforceAndPlayElement(fallback, true);
-                    alarmActive = true;
-                    lastTriggeredLevel = batteryLevel;
-                    console.log("🔊 (fallback) Started playing (enforced): " + selected);
-                } catch(e) {
-                    console.warn("promo.js: fallback audio play failed:", e);
+    // Throttle control: allow play if alarmInactive OR level changed >1% OR >2s since last play post
+    const now = Date.now();
+    const lastLevel = (lastTriggeredLevel === null || typeof lastTriggeredLevel === 'undefined') ? NaN : Number(lastTriggeredLevel);
+    const levelChangedEnough = !isNaN(lastLevel) ? (Math.abs(lastLevel - batteryLevel) > 1) : true;
+    const timeElapsed = now - (lastPlayTs || 0);
+    const shouldRequestNative = (!alarmActive) || levelChangedEnough || (timeElapsed > 2000);
+
+    if (!shouldRequestNative) {
+        console.log("promo.js: play throttled - lastPlayTs=", lastPlayTs, "elapsed(ms)=", timeElapsed, "lastLevel=", lastTriggeredLevel, "now=", batteryLevel);
+    }
+
+    if (shouldRequestNative) {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+            try {
+                // Ask native to play the default sound by name (e.g., "default", "slide_whistle")
+                window.webkit.messageHandlers.jsLogger.postMessage("PLAY_DEFAULT:" + selected);
+                // mark that an alarm is active (native)
+                alarmActive = true;
+                lastTriggeredLevel = batteryLevel;
+                lastPlayTs = now;
+            } catch (e) {
+                console.warn("promo.js: failed to post PLAY_DEFAULT to native:", e);
+                // Fallback to in-page audio playback if native bridge fails
+                const fallback = soundMap[selected];
+                if (fallback) {
+                    try {
+                        // Use helper to enforce app volume robustly while starting playback
+                        enforceAndPlayElement(fallback, true);
+                        alarmActive = true;
+                        lastTriggeredLevel = batteryLevel;
+                        lastPlayTs = now;
+                        console.log("🔊 (fallback) Started playing (enforced): " + selected);
+                    } catch(e) {
+                        console.warn("promo.js: fallback audio play failed:", e);
+                    }
                 }
             }
-        }
-    } else {
-        // No native bridge present — fallback to page audio
-        const audio = soundMap[selected];
-        if (audio) {
-            audio.currentTime = 0;
-            audio.loop = true;
-            audio.play();
-            alarmActive = true;
-            lastTriggeredLevel = batteryLevel;
-            console.log("🔊 (no bridge) Started playing: " + selected);
+        } else {
+            // No native bridge present — fallback to page audio
+            const audio = soundMap[selected];
+            if (audio) {
+                audio.currentTime = 0;
+                audio.loop = true;
+                audio.play();
+                alarmActive = true;
+                lastTriggeredLevel = batteryLevel;
+                lastPlayTs = now;
+                console.log("🔊 (no bridge) Started playing: " + selected);
+            }
         }
     }
 }
@@ -417,6 +445,7 @@ function stopAlarmIfSafe() {
 }
 
 // Update updateBattery function to check for safe conditions (shows ±2% range)
+// Enforces: low alarms only when NOT charging; high alarms only when charging.
 function updateBattery() {
     // Skip update if monitoring is paused
     if (monitoringPaused) {
@@ -440,17 +469,22 @@ function updateBattery() {
     const low = parseInt(lowInput.value);
     const high = parseInt(highInput.value);
 
-    // Check if we should trigger alarm
-    if (!isNaN(low) && batteryLevel <= low) {
-        playSound();
-    } else if (!isNaN(high) && batteryLevel >= high) {
-        playSound();
+    // Determine charging state reported from native (set by updateBatteryHealth)
+    const isChargingNow = (typeof chargingState !== 'undefined') && (chargingState === 'Charging' || chargingState === 'Full');
+
+    // Check if we should trigger alarm:
+    // Let native handle alarms/notifications. JS no longer starts sounds here.
+    // Low: banner only (no sound), handled natively.
+    // High: banner + native alarm handled natively.
+    // If within safe range, stop any playing alarm.
+    if ((!isNaN(low) && batteryLevel <= low && !isChargingNow) ||
+        (!isNaN(high) && batteryLevel >= high && isChargingNow)) {
+        // No JS audio start — native handles alarm/notification
     } else {
-        // Battery is within safe range - stop alarm if playing
         stopAlarmIfSafe();
     }
     
-    console.log("Battery:", batteryLevel, "Range:", `${minRange}-${maxRange}`, "Low:", low, "High:", high, "AlarmActive:", alarmActive);
+    console.log("Battery:", batteryLevel, "Range:", `${minRange}-${maxRange}`, "Low:", low, "High:", high, "Charging:", chargingState, "AlarmActive:", alarmActive);
 }
 
 // Validate that low threshold is less than high threshold
@@ -459,69 +493,85 @@ function validateThresholds() {
     const high = parseInt(highInput.value);
     
     if (low >= high) {
+        suppressThresholdPost = true; // prevent re-entrant SET_THRESHOLDS
         // Adjust high threshold to be at least 5% higher than low
         highInput.value = Math.min(100, low + 5);
         highDisplay.textContent = highInput.value + "%";
         console.log("⚠️ Adjusted high threshold to be above low threshold");
+        suppressThresholdPost = false;
     }
 }
 
-// Simulate purchase and hide promo sections
-function simulatePurchase() {
-    adsRemoved = true;
-    document.getElementById("purchase").style.display = "none";
-    document.getElementById("promo-banner").style.display = "none";
-    document.getElementById("noAds").style.display = "none";
-}
-
-// Toggle hamburger menu visibility
-document.getElementById("menu-toggle").addEventListener("click", () => {
-    const menu = document.getElementById("menu");
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-});
-
-// Add battery mode toggle to menu (SIMULATION HIDDEN FOR RELEASE)
-function setupBatteryToggle() {
-    // Simulation UI and battery-status menu items are intentionally hidden in release builds.
-    // To re-enable for development, restore the previous implementation.
-    // No DOM changes are performed here to keep the menu clean.
-    console.log("promo.js: setupBatteryToggle — Simulation menu hidden for release");
-    return;
-}
-
-// Initialize battery toggle and preferred sound when page loads
-document.addEventListener('DOMContentLoaded', setupBatteryToggle);
-document.addEventListener('DOMContentLoaded', applyPreferredSoundOnLoad);
-
-// Ensure no stale/static Battery Health element is shown on page load — native will populate real value
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        const bh = document.getElementById('battery-health');
-        if (bh) {
-            bh.remove();
-            console.log("promo.js: removed stale battery-health element on load");
-        }
-    } catch (e) {
-        console.warn("promo.js: failed to remove stale battery-health element", e);
-    }
-});
-
-// Close menu when clicking outside
-document.addEventListener("click", (e) => {
-    if (!e.target.closest("#menu") && !e.target.closest("#menu-toggle")) {
-        document.getElementById("menu").style.display = "none";
-    }
-});
-
-// Update slider displays and validate thresholds
+// Update slider displays and validate thresholds (INPUT handlers remain UI-only and do NOT post native SET_THRESHOLDS)
 lowInput.addEventListener("input", function() {
     lowDisplay.textContent = this.value + "%";
     validateThresholds();
+
+    // Do not post SET_THRESHOLDS here — we will post only on 'change' (final value)
 });
 
 highInput.addEventListener("input", function() {
     highDisplay.textContent = this.value + "%";
     validateThresholds();
+
+    // Do not post SET_THRESHOLDS here — we will post only on 'change' (final value)
+});
+
+// Helper to post thresholds to native immediately (used by change handlers).
+// This centralizes logic and avoids duplicate sends.
+function sendThresholdsNow() {
+    if (suppressThresholdPost) return;
+
+    try {
+        // Print a local stack trace to the browser console (useful for file:// testing)
+        try {
+            console.trace("promo.js: sendThresholdsNow() trace - preparing to post SET_THRESHOLDS");
+        } catch (traceErr) {
+            // non-fatal if console.trace unsupported
+        }
+
+        // Also send a compact encoded JS stack to native for diagnostics (if bridge available)
+        try {
+            var stackText = (new Error()).stack || "no-stack";
+            var encoded = encodeURIComponent(String(stackText).slice(0, 4000));
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+                try {
+                    window.webkit.messageHandlers.jsLogger.postMessage("DEBUG_SET_THRESHOLDS_STACK:" + encoded);
+                } catch (dbgErr) {
+                    // ignore debug post failures
+                }
+            }
+        } catch (sErr) {
+            // ignore stack-encoding failures
+        }
+
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+            var l = parseInt(lowInput.value) || 0;
+            var h = parseInt(highInput.value) || 0;
+
+            // Only send to native when the logical pair actually changed since last send.
+            if (lastSentThresholds.low !== l || lastSentThresholds.high !== h) {
+                window.webkit.messageHandlers.jsLogger.postMessage("SET_THRESHOLDS:" + l + ":" + h);
+                console.log("promo.js: posted SET_THRESHOLDS ->", l, h);
+                lastSentThresholds.low = l;
+                lastSentThresholds.high = h;
+            } else {
+                // no change -> suppress duplicate send
+            }
+        }
+    } catch (e) {
+        console.warn("promo.js: failed to post SET_THRESHOLDS (change event)", e);
+    }
+}
+
+// Attach 'change' listeners so we only tell native the final slider values once the user finishes interaction.
+lowInput.addEventListener("change", function() {
+    // Using a tiny micro-delay ensures programmatic adjustments (validateThresholds) settle before sending
+    setTimeout(sendThresholdsNow, 8);
+});
+
+highInput.addEventListener("change", function() {
+    setTimeout(sendThresholdsNow, 8);
 });
 
 // Auto-play a preview on selection change (plays once ~3s)
@@ -529,12 +579,16 @@ soundSelect.addEventListener("change", () => {
     const selected = soundSelect.value;
     console.log("Sound selection changed to:", selected);
 
-    // If switching to a non-custom sound, stop any custom music first
+    // If switching to a non-custom sound, stop only JS audio; keep native alarm running
     if (selected !== "custom") {
-        console.log("🔄 Switching to non-custom sound, stopping custom music");
-        stopCustomMusic();
-        
-        // RESET THE FLAG HERE - This was missing!
+        console.log("🔄 Switching to non-custom sound (JS-only stop), leaving native alarm running");
+        try {
+            Object.values(soundMap).forEach(audio => {
+                try { audio.pause(); audio.currentTime = 0; } catch (e) {}
+            });
+        } catch (e) { console.warn("promo.js: JS-only stop on sound change failed", e); }
+
+        // RESET THE FLAG HERE
         musicPickerOpen = false;
         console.log("🎵 Music picker flag reset - alarm triggers enabled");
     }
@@ -549,6 +603,14 @@ soundSelect.addEventListener("change", () => {
             localStorage.setItem('preferredAlarmSound', selected);
             removeDefaultLabel();
             console.log("promo.js: Stored preferredAlarmSound =", selected);
+        }
+        // Notify native of the current preferred sound selection
+        try {
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+                window.webkit.messageHandlers.jsLogger.postMessage("SET_PREFERRED_SOUND:" + selected);
+            }
+        } catch (err) {
+            console.warn("promo.js: failed to post SET_PREFERRED_SOUND on change", err);
         }
     } catch (e) {
         console.warn("promo.js: failed to persist preferredAlarmSound", e);
@@ -802,7 +864,7 @@ function openAppSettings() {
 // remove or ignore any prior showDeviceInfo() calls in your UI so they don't attempt to run
 
 // Start battery simulation loop
-setInterval(updateBattery, 3000);
+setInterval(updateBattery, 5000);
 
 // SOS Controls (in-page) - Toggle SOS beacon and Send SOS SMS (posts to native)
 (function addSOSControls(){
@@ -925,5 +987,148 @@ setInterval(updateBattery, 3000);
     console.log('promo.js: SOS controls wired to hard-coded HTML buttons (inline)');
   } catch(e) {
     console.warn('promo.js: addSOSControls error', e);
+  }
+})();
+
+// --- Minimal, non-persistent simulatePurchase + robust hamburger menu toggle/outside-close ---
+// simulatePurchase: hides the promo visuals for this run only (no localStorage or persistence).
+// Menu toggle: toggles #menu and closes when clicking outside or pressing Escape.
+
+(function promoUiTransientFixes() {
+  try {
+    // Transient hide of promo UI (no persistence)
+    function hidePromoUITransient() {
+      try {
+        var promoBanner = document.getElementById('promo-banner');
+        var purchaseSection = document.getElementById('purchase');
+        var noAds = document.getElementById('noAds');
+
+        if (promoBanner) promoBanner.style.display = 'none';
+        if (purchaseSection) purchaseSection.style.display = 'none';
+        if (noAds) noAds.style.display = 'none';
+
+        console.log('promo.js: simulatePurchase (transient) -> promo UI hidden for this run');
+      } catch (e) {
+        console.warn('promo.js: hidePromoUITransient error', e);
+      }
+    }
+
+    // Public function invoked by the Buy button in promo.html
+    window.simulatePurchase = function simulatePurchase() {
+      try {
+        // Transient hide only (do NOT persist across reloads)
+        hidePromoUITransient();
+
+        // Optionally tell native we simulated a purchase (non-fatal, informational)
+        try {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.jsLogger) {
+            window.webkit.messageHandlers.jsLogger.postMessage('SIMULATED_PURCHASE');
+          }
+        } catch (e) { /* ignore bridge failures */ }
+
+        return true;
+      } catch (e) {
+        console.warn('promo.js: simulatePurchase error', e);
+        return false;
+      }
+    };
+
+    // Menu toggle + outside click/escape to close
+    function initHamburgerMenu() {
+      try {
+        var menuToggle = document.getElementById('menu-toggle');
+        var menu = document.getElementById('menu');
+
+        if (!menuToggle || !menu) {
+          // Nothing to wire
+          return;
+        }
+
+        // Ensure sane ARIA defaults
+        if (!menuToggle.hasAttribute('aria-expanded')) menuToggle.setAttribute('aria-expanded', 'false');
+        if (!menu.hasAttribute('aria-hidden')) menu.setAttribute('aria-hidden', 'true');
+
+        // Helper open/close
+        function openMenu() {
+          try {
+            menu.style.display = 'block';
+            menu.setAttribute('data-open', '1');
+            menu.setAttribute('aria-hidden', 'false');
+            menuToggle.setAttribute('aria-expanded', 'true');
+          } catch (e) { console.warn('promo.js: openMenu error', e); }
+        }
+        function closeMenu() {
+          try {
+            menu.style.display = 'none';
+            menu.setAttribute('data-open', '0');
+            menu.setAttribute('aria-hidden', 'true');
+            menuToggle.setAttribute('aria-expanded', 'false');
+          } catch (e) { console.warn('promo.js: closeMenu error', e); }
+        }
+        function isMenuOpen() {
+          try {
+            return menu.getAttribute('data-open') === '1' || (menu.style.display && menu.style.display !== 'none');
+          } catch (e) { return false; }
+        }
+
+        // Toggle on click
+        menuToggle.addEventListener('click', function(ev) {
+          try {
+            if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+            if (isMenuOpen()) closeMenu(); else openMenu();
+          } catch (e) { console.warn('promo.js: menuToggle click error', e); }
+        }, { passive: false });
+
+        // Click outside to close (capture phase for reliability)
+        document.addEventListener('click', function(ev) {
+          try {
+            if (!isMenuOpen()) return;
+            var t = ev && ev.target;
+            if (!t) return;
+            if (menu.contains(t) || menuToggle.contains(t)) return;
+            closeMenu();
+          } catch (e) {
+            // fail quietly
+          }
+        }, true);
+
+        // Escape key closes
+        document.addEventListener('keydown', function(ev) {
+          try {
+            var k = ev && (ev.key || ev.keyIdentifier);
+            if (!k) return;
+            if (k === 'Escape' || k === 'Esc') {
+              if (isMenuOpen()) closeMenu();
+            }
+          } catch (e) {}
+        }, true);
+
+        // Respect initial CSS: if menu was hidden by CSS, keep hidden, otherwise default to hidden until opened
+        if (!menu.getAttribute('data-init')) {
+          var comp = getComputedStyle(menu);
+          if (comp && comp.display !== 'none') {
+            // leave as-is (some devs prefer the nav visible in wide layouts)
+          } else {
+            menu.style.display = 'none';
+          }
+          menu.setAttribute('data-init', '1');
+        }
+
+        console.log('promo.js: hamburger menu initialized (outside-click and Escape close enabled)');
+      } catch (e) {
+        console.warn('promo.js: initHamburgerMenu error', e);
+      }
+    }
+
+    // Initialize when DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        initHamburgerMenu();
+      });
+    } else {
+      initHamburgerMenu();
+    }
+  } catch (e) {
+    console.warn('promo.js: promoUiTransientFixes error', e);
   }
 })();

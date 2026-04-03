@@ -14,6 +14,7 @@ import Photos
 import PhotosUI
 import AudioToolbox
 import MessageUI
+import UserNotifications
 
 struct PromoWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
@@ -65,9 +66,6 @@ struct PromoWebView: UIViewRepresentable {
             print("❌ promo.html not found in bundle")
         }
 
-        // Start battery monitoring (JS calls are queued until page load finishes)
-        context.coordinator.startBatteryMonitoring()
-
         return webView
     }
 
@@ -79,6 +77,10 @@ struct PromoWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         private var batteryTimer: Timer?
         private var isTorchOn = false
+
+        // Background notification suppression (avoid spamming system notifications)
+        private var lastBackgroundNotificationTs: Date?
+        private let backgroundNotificationMinInterval: TimeInterval = 60.0
 
         // SOS/foreground haptic & torch prototype
         private var sosPatternIndex: Int = 0
@@ -95,17 +97,32 @@ struct PromoWebView: UIViewRepresentable {
         // Page-load state and queued JS scripts until page is ready
         private var pageLoaded = false
         private var pendingJSScripts: [String] = []
+        // Debounce work item for SET_THRESHOLDS messages coming from JS
+        private var pendingThresholdsTask: DispatchWorkItem?
 
         override init() {
             super.init()
             UIDevice.current.isBatteryMonitoringEnabled = true
+
+            // Observe battery state/level changes and push updates to the web UI immediately.
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(batteryStateOrLevelChanged(_:)),
+                                                   name: UIDevice.batteryStateDidChangeNotification,
+                                                   object: nil)
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(batteryStateOrLevelChanged(_:)),
+                                                   name: UIDevice.batteryLevelDidChangeNotification,
+                                                   object: nil)
         }
 
         deinit {
             batteryTimer?.invalidate()
-            UIDevice.current.isBatteryMonitoringEnabled = false
+            // Keep system battery monitoring enabled (BatteryMonitor owns lifecycle).
             // remove JS handlers added by this coordinator to avoid duplicates/leaks
             webView?.configuration.userContentController.removeScriptMessageHandler(forName: "jsLogger")
+            // Remove observers we registered (safe to call even if already removed)
+            NotificationCenter.default.removeObserver(self, name: UIDevice.batteryStateDidChangeNotification, object: nil)
+            NotificationCenter.default.removeObserver(self, name: UIDevice.batteryLevelDidChangeNotification, object: nil)
             // setSystemVolume handler removed earlier; no longer deregistering here
         }
 
@@ -192,6 +209,51 @@ struct PromoWebView: UIViewRepresentable {
                     AlarmManager.shared.setAlarmVolume(normalized)
                 }
 
+            case let s where s.hasPrefix("SET_THRESHOLDS:"):
+                // payload: "SET_THRESHOLDS:<low>:<high>" where values are 0-100 integers
+                // Debounce rapid changes coming from JS so native doesn't thrash notification scheduling.
+                let parts = s.components(separatedBy: ":")
+                if parts.count >= 3, let lowInt = Int(parts[1]), let highInt = Int(parts[2]) {
+                    let lowVal = Double(max(0, min(100, lowInt))) / 100.0
+                    let highVal = Double(max(0, min(100, highInt))) / 100.0
+
+                    // Cancel any previously scheduled threshold write and schedule a new one shortly in the future.
+                    pendingThresholdsTask?.cancel()
+                    let work = DispatchWorkItem { [weak self] in
+                        guard let self = self else { return }
+                        // Persist to UserDefaults so native code (AlarmManager, BatteryMonitor) sees the updated thresholds.
+                        UserDefaults.standard.set(lowVal, forKey: "lowThreshold")
+                        UserDefaults.standard.set(highVal, forKey: "highThreshold")
+                        print("📟 JS LOG: SET_THRESHOLDS applied (debounced) - persisted low=\(Int(lowVal*100))% high=\(Int(highVal*100))%")
+
+                        // Clear any pending or delivered notifications scheduled under previous thresholds to prevent stale banners.
+                        let center = UNUserNotificationCenter.current()
+                        center.removeAllPendingNotificationRequests()
+                        center.removeAllDeliveredNotifications()
+
+                        // Defensive: if device is charging and level <= lowVal, immediately stop any playing alarm
+                        UIDevice.current.isBatteryMonitoringEnabled = true
+                        let deviceLevel = Double(UIDevice.current.batteryLevel) // 0.0-1.0 or -1 if unknown
+                        let deviceState = UIDevice.current.batteryState
+                        if deviceLevel >= 0 && (deviceState == .charging || deviceState == .full) && deviceLevel <= lowVal {
+                            print("⛔ SET_THRESHOLDS safeguard: device charging and level \(Int(deviceLevel*100))% <= new low \(Int(lowVal*100))% — stopping alarm")
+                            AlarmManager.shared.stopAlarm()
+                        }
+
+                        // Refresh JS with native level/state so UI & native are in sync
+                        self.sendBatteryLevelToWebView()
+                        self.sendBatteryHealthToWebView()
+                        // clear the pendingTask reference
+                        DispatchQueue.main.async { [weak self] in self?.pendingThresholdsTask = nil }
+                    }
+
+                    // Hold briefly to collapse many rapid updates into one (450ms chosen experimentally)
+                    pendingThresholdsTask = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
+                } else {
+                    print("⚠️ SET_THRESHOLDS: malformed payload -> \(s)")
+                }
+
             case let s where s.hasPrefix("PREVIEW_DEFAULT:"):
                 // payload: "PREVIEW_DEFAULT:<name>" — play a short one-shot preview (native preferred)
                 if let name = s.split(separator: ":").last {
@@ -235,6 +297,23 @@ struct PromoWebView: UIViewRepresentable {
                 if let name = s.split(separator: ":").last {
                     let soundName = String(name)
                     print("📟 JS LOG: Request to play default sound: \(soundName)")
+
+                    // Persist user-selected default sound so native battery alarms use it
+                    UserDefaults.standard.set(soundName, forKey: "preferredAlarmSound")
+
+                    // Defensive suppression: if device is charging (or full) AND the current battery
+                    // level is <= configured low threshold, do not start native playback.
+                    UIDevice.current.isBatteryMonitoringEnabled = true
+                    let deviceLevel = UIDevice.current.batteryLevel
+                    let deviceState = UIDevice.current.batteryState
+                    let storedLow = Float(UserDefaults.standard.object(forKey: "lowThreshold") as? Double ?? 0.20)
+                    if deviceLevel >= 0 && (deviceState == .charging || deviceState == .full) && deviceLevel <= storedLow {
+                        print("⛔ JS-initiated PLAY_DEFAULT suppressed: device charging and battery \(Int(deviceLevel * 100))% <= lowThreshold \(Int(storedLow * 100))%")
+                        // Inform page (non-fatal)
+                        evaluateOrQueue("try { console.log('native: play suppressed while charging'); } catch(e) { }")
+                        break
+                    }
+
                     let nativePlayed = AlarmManager.shared.playDefault(named: soundName)
                     if !nativePlayed {
                         // Fallback to in-page audio element (uses remote URL from promo.html)
@@ -518,6 +597,13 @@ struct PromoWebView: UIViewRepresentable {
             case "STOP_ALARM":
                 print("🛑 Stop alarm requested from JavaScript")
                 AlarmManager.shared.stopAlarm()
+
+            case let s where s.hasPrefix("SET_PREFERRED_SOUND:"):
+                if let name = s.split(separator: ":").last {
+                    let soundName = String(name)
+                    UserDefaults.standard.set(soundName, forKey: "preferredAlarmSound")
+                    print("📟 JS LOG: SET_PREFERRED_SOUND persisted -> \(soundName)")
+                }
             case "START_CUSTOM_ALARM":
                 print("🎵 Custom music alarm requested from JS")
                 AlarmManager.shared.startAlarm()
@@ -583,6 +669,9 @@ struct PromoWebView: UIViewRepresentable {
         }
 
         private func sendBatteryHealthToWebView() {
+            // Ensure battery monitoring is enabled so batteryState is accurate
+            UIDevice.current.isBatteryMonitoringEnabled = true
+
             let device = UIDevice.current
             let batteryState: String
             switch device.batteryState {
@@ -614,14 +703,46 @@ struct PromoWebView: UIViewRepresentable {
 
         // MARK: - Notifications
         private func checkForBackgroundNotification(batteryLevel: Int) {
-            print("🔔 Background notification check: \(batteryLevel)%")
-            let lowThreshold = 20
-            let highThreshold = 80
-            if batteryLevel <= lowThreshold {
-                NotificationManager.default.scheduleBackgroundNotification(title: "🔋 Battery Low!", body: "Battery is at \(batteryLevel)% - needs charging!")
+            // If a dedicated BatteryMonitor exists for the app lifecycle, let it be the single source
+            // of truth for notifications. This prevents duplicate/erratic banners caused by multiple schedulers.
+            if BatteryMonitor.instanceCounter > 0 {
+                print("promo.Coordinator: skipping background notification scheduling because BatteryMonitor is active (instanceCounter=\(BatteryMonitor.instanceCounter))")
+                return
+            }
+
+            let storedLow = UserDefaults.standard.object(forKey: "lowThreshold") as? Double ?? 0.20
+            let storedHigh = UserDefaults.standard.object(forKey: "highThreshold") as? Double ?? 0.80
+            let lowThreshold = Int(round(storedLow * 100))
+            let highThreshold = Int(round(storedHigh * 100))
+
+            print("🔔 Background notification check: \(batteryLevel)% (low=\(lowThreshold)% high=\(highThreshold)%)")
+
+            // Throttle background notifications to avoid spamming the system.
+            if let last = lastBackgroundNotificationTs {
+                let elapsed = Date().timeIntervalSince(last)
+                if elapsed < backgroundNotificationMinInterval {
+                    print("⏱️ Suppressed background notification — only \(Int(elapsed))s since last (min \(Int(backgroundNotificationMinInterval))s)")
+                    return
+                }
+            }
+
+            // Require sane thresholds
+            if lowThreshold >= highThreshold {
+                print("⛔ Skipping background notification — invalid thresholds (low >= high)")
+                return
+            }
+
+            // Respect charging state: high only when charging/full, low only when not charging
+            let deviceState = UIDevice.current.batteryState
+            let isCharging = (deviceState == .charging || deviceState == .full)
+
+            if !isCharging && batteryLevel <= lowThreshold {
+                NotificationManager.default.scheduleBackgroundNotification(title: "🔋 Battery Low!", body: "Battery is at \(batteryLevel)% - needs charging!", batteryLevel: batteryLevel)
+                lastBackgroundNotificationTs = Date()
                 print("🚨 LOW battery notification triggered: \(batteryLevel)%")
-            } else if batteryLevel >= highThreshold {
-                NotificationManager.default.scheduleBackgroundNotification(title: "🔋 Battery High!", body: "Battery is at \(batteryLevel)% - high level reached!")
+            } else if isCharging && batteryLevel >= highThreshold {
+                NotificationManager.default.scheduleBackgroundNotification(title: "🔋 Battery High!", body: "Battery is at \(batteryLevel)% - high level reached!", batteryLevel: batteryLevel)
+                lastBackgroundNotificationTs = Date()
                 print("🚨 HIGH battery notification triggered: \(batteryLevel)%")
             }
         }
@@ -1202,6 +1323,19 @@ struct PromoWebView: UIViewRepresentable {
                 let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
                 alert.addAction(UIAlertAction(title: "OK", style: .default))
                 if let top = s.topViewController() { top.present(alert, animated: true) }
+            }
+        }
+
+        @objc private func batteryStateOrLevelChanged(_ notification: Notification) {
+            // When battery state or level changes, push both pieces of information to the page
+            // so the promo.html label can update reliably.
+            // Use the existing helpers to send level and health/state to the web view.
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                // Send level then health/state — JS can update UI accordingly.
+                self.sendBatteryLevelToWebView()
+                self.sendBatteryHealthToWebView()
+                print("🔔 batteryStateOrLevelChanged: forwarded level+state to webview")
             }
         }
 

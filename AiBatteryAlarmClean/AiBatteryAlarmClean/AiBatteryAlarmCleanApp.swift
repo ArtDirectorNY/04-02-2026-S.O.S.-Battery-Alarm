@@ -1,48 +1,31 @@
-////
 //  AiBatteryAlarmCleanApp.swift
 //  AiBatteryAlarmClean
 //
+// AiBatteryAlarmCleanApp.swift
 //  Created by Jaime Ordonez on 10/6/25.
-//
 /*
-import SwiftUI
-
-@main
-struct AiBatteryAlarmCleanApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-    }
-}
+ Previous history retained in comments in original file.
 */
 
-/* BAK 10-28-1349
 import SwiftUI
+import UserNotifications
 
 @main
 struct AiBatteryAlarmCleanApp: App {
-    var body: some Scene {
-        /*
-        WindowGroup {
-            ContentView()
-        }
-        */
+    // Single shared BatteryMonitor for the app lifecycle
+    @StateObject private var monitor = BatteryMonitor()
 
-        // ✅ Temporary override for promo.html testing
-        WindowGroup {
-            PromoWebView()
-        }
-    }
-}*/
-
-import SwiftUI
-
-@main
-struct AiBatteryAlarmCleanApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(monitor)
+                .onAppear {
+                    // Wire the UNUserNotificationCenter delegate so foreground banners are presented.
+                    UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+
+                    // Request notification permission early so background/foreground banners can be shown.
+                    NotificationManager.default.requestAuthorization()
+                }
         }
     }
 }

@@ -1,15 +1,6 @@
-//  BatteryInfoView.swift
-//  AiBatteryAlarmClean
-//
-//  Created by Jaime Ordonez on 11/7/25.
-//
-
 import SwiftUI
 import UIKit
 
-// Simple in-app Battery info view (App-Store-safe).
-// Shows battery level, charging state, and an optional persisted override.
-// Provides a button to open system Battery settings (DEBUG tries App-Prefs; Release uses public App Settings).
 struct BatteryInfoView: View {
     @Environment(\.presentationMode) private var presentationMode
 
@@ -34,7 +25,7 @@ struct BatteryInfoView: View {
         }
 
         #if targetEnvironment(simulator)
-        batteryHealthString = "95" // simulator mock
+        batteryHealthString = "95"
         #else
         if let override = UserDefaults.standard.object(forKey: "batteryHealthOverride") as? Int,
            (1...100).contains(override) {
@@ -51,7 +42,6 @@ struct BatteryInfoView: View {
         let appSettings = URL(string: UIApplication.openSettingsURLString)!
 
         #if DEBUG
-        // Try deep link first in DEBUG for local testing (unofficial)
         let candidates = [
             "App-Prefs:root=BATTERY&path=BATTERY_USAGE",
             "App-Prefs:root=BATTERY",
@@ -64,10 +54,8 @@ struct BatteryInfoView: View {
                 return
             }
         }
-        // If none worked, fall back:
         UIApplication.shared.open(appSettings, options: [:], completionHandler: nil)
         #else
-        // Release: only open public app settings
         UIApplication.shared.open(appSettings, options: [:], completionHandler: nil)
         #endif
     }
@@ -107,7 +95,6 @@ struct BatteryInfoView: View {
                         }
                     }
 
-                    // New: Clear any persisted batteryHealthOverride (useful for removing stale test values)
                     Button(action: {
                         UserDefaults.standard.removeObject(forKey: "batteryHealthOverride")
                         updateValues()
@@ -132,12 +119,8 @@ struct BatteryInfoView: View {
             .onAppear {
                 UIDevice.current.isBatteryMonitoringEnabled = true
                 updateValues()
-                NotificationCenter.default.addObserver(forName: UIDevice.batteryLevelDidChangeNotification, object: nil, queue: .main) { _ in
-                    updateValues()
-                }
-                NotificationCenter.default.addObserver(forName: UIDevice.batteryStateDidChangeNotification, object: nil, queue: .main) { _ in
-                    updateValues()
-                }
+                NotificationCenter.default.addObserver(forName: UIDevice.batteryLevelDidChangeNotification, object: nil, queue: .main) { _ in updateValues() }
+                NotificationCenter.default.addObserver(forName: UIDevice.batteryStateDidChangeNotification, object: nil, queue: .main) { _ in updateValues() }
             }
             .onDisappear {
                 NotificationCenter.default.removeObserver(self)
