@@ -178,37 +178,7 @@ function resetMusicPickerFlag() {
     }
 }
 
-// Simulate battery fluctuation and update UI
-function updateBattery() {
-    // Skip update if monitoring is paused
-    if (monitoringPaused) {
-        console.log("⏸️ Monitoring paused - skipping battery update");
-        return;
-    }
-    
-    // Use real battery level if enabled, otherwise simulation
-    if (useRealBattery) {
-        batteryLevel = realBatteryLevel;
-    } else {
-        batteryLevel = Math.min(100, Math.max(0, batteryLevel + (Math.random() * 10 - 5)));
-    }
-    
-    // Show a ±2% range to account for measurement lag/variance
-    const minRange = Math.max(0, Math.round(batteryLevel - 2));
-    const maxRange = Math.min(100, Math.round(batteryLevel + 2));
-    batteryDisplay.textContent = `${minRange}% - ${maxRange}%`;
-    // Visualize the range: green from 0..minRange, brighter green for min..max, then grey
-    batteryBar.style.background = `linear-gradient(to right, #00b894 ${minRange}%, #00b894 ${maxRange}%, #ccc ${maxRange}%)`;
-
-    const low = parseInt(lowInput.value);
-    const high = parseInt(highInput.value);
-
-    if (!isNaN(low) && batteryLevel <= low) playSound();
-    // Log for debugging
-    console.log("Battery:", batteryLevel, "Low:", low, "High:", high);
-    if (!isNaN(high) && batteryLevel >= high) playSound();
-}
-
+// duplicate updateBattery removed — native-aware updateBattery retained later
 // Function to stop custom music
 function stopCustomMusic() {
     console.log("🛑 Stopping custom music");
